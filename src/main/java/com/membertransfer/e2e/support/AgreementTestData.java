@@ -13,7 +13,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class AgreementTestData {
 
-    private static final DateTimeFormatter BIRTHDAY = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm:ss XXX");
+    private static final DateTimeFormatter BIRTHDAY = DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
     private AgreementTestData() {
     }
@@ -23,12 +23,13 @@ public final class AgreementTestData {
         return CreateAgreementRequest.AgreementContactInfo.builder()
                 .firstName("James" + suffix)
                 .lastName("Sullivan" + suffix)
-                .email("e2e.agreement." + UUID.randomUUID() + "@example.com")
-                .gender("M")
+                // eAPI validates against allowed domains; align with internal automation stub pattern.
+                .email("abcqatesting2018" + randomAlpha(3) + System.currentTimeMillis() + "@qa4life.com")
+                .gender("male")
                 .homePhone(phone())
                 .cellPhone(phone())
                 .workPhone(phone())
-                .birthday(LocalDate.now(ZoneOffset.UTC).minusYears(22).atStartOfDay(ZoneOffset.UTC).format(BIRTHDAY))
+                .birthday(LocalDate.now(ZoneOffset.UTC).minusYears(22).format(BIRTHDAY))
                 .agreementAddressInfo(address())
                 .emergencyContact(CreateAgreementRequest.AgreementContactInfo.EmergencyContact.builder()
                         .ecFirstName("Emergency" + suffix)
