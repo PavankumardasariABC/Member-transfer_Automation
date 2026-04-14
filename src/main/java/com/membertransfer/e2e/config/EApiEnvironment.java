@@ -1,5 +1,6 @@
 package com.membertransfer.e2e.config;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +22,9 @@ import java.util.Objects;
  *   <li>One of: explicit base URL <em>or</em> a known environment profile id</li>
  *   <li>{@code EAPI_APP_ID}, {@code EAPI_APP_KEY}, {@code EAPI_AUTHORIZATION} — same semantics as the
  *       internal automation headers (never commit real values to a public repository)</li>
+ *   <li>Alternatively: set {@code DT2RCM_AUTOMATION_ROOT} / {@code e2e.dt2rcm.root} to a local dt2rcm checkout so
+ *       {@link Dt2rcmEApiCredentialBridge} can read {@code APP_ID_WITH_AUTH}, {@code APP_KEY_WITH_AUTH}, and
+ *       {@code BASIC} from {@code EApiHelper.java} (same as running {@code :obc} tests without exporting secrets).</li>
  * </ul>
  */
 public final class EApiEnvironment {
@@ -122,6 +126,24 @@ public final class EApiEnvironment {
         String appKey = firstNonBlank(System.getProperty(ENV_APP_KEY), System.getenv(ENV_APP_KEY));
         String authorization = firstNonBlank(System.getProperty(ENV_AUTHORIZATION), System.getenv(ENV_AUTHORIZATION));
         if (appId == null || appKey == null || authorization == null) {
+            String[] fromDt2 = Dt2rcmEApiCredentialBridge.tryLoadAuthTriplet();
+            if (fromDt2 != null) {
+                if (appId == null) {
+                    appId = fromDt2[0];
+                }
+                if (appKey == null) {
+                    appKey = fromDt2[1];
+                }
+                if (authorization == null) {
+                    authorization = fromDt2[2];
+                }
+                Path helper = Dt2rcmEApiCredentialBridge.resolveEApiHelperPath();
+                if (helper != null) {
+                    System.out.println("--- eAPI credentials: loaded from local dt2rcm EApiHelper (" + helper + ") ---");
+                }
+            }
+        }
+        if (appId == null || appKey == null || authorization == null) {
             String miss = "";
             if (appId == null) {
                 miss += " " + ENV_APP_ID + " is blank/missing;";
@@ -134,8 +156,10 @@ public final class EApiEnvironment {
             }
             throw new IllegalStateException(
                     "eAPI credentials are required." + miss
-                            + " Add repository secrets " + ENV_APP_ID + ", " + ENV_APP_KEY + ", " + ENV_AUTHORIZATION
-                            + " (GitHub → Settings → Secrets and variables → Actions) and ensure this workflow passes them in `env:`.");
+                            + " Export " + ENV_APP_ID + ", " + ENV_APP_KEY + ", " + ENV_AUTHORIZATION
+                            + " (GitHub Actions secrets / your shell), or set " + Dt2rcmEApiCredentialBridge.ENV_DT2RCM_ROOT
+                            + " / -D" + Dt2rcmEApiCredentialBridge.PROP_DT2RCM_ROOT + " to your local dt2rcm_automation checkout"
+                            + " so values can be read from api/.../EApiHelper.java (same as dt2rcm :obc tests).");
         }
         Map<String, String> m = new HashMap<>();
         m.put("app_id", appId);

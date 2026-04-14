@@ -39,6 +39,7 @@ tasks.named('test', Test) {
             'E2E_TOTAL_AGREEMENTS', 'E2E_SHARD_COUNT', 'E2E_SHARD_INDEX',
             'E2E_REQUIRE_CLUB_CATALOG', 'E2E_CLUBS_JSON_PATH', 'E2E_RESULTS_DIR',
             'E2E_AGREEMENT_QUEUE_TIMEOUT_MINUTES',
+            'DT2RCM_AUTOMATION_ROOT',
             'GITHUB_RUN_ID', 'GITHUB_REPOSITORY', 'GITHUB_SERVER_URL', 'GITHUB_WORKFLOW'
     ].each { String key ->
         String v = System.getenv(key)
@@ -118,6 +119,13 @@ tasks.named('test', Test) {
     def queueTimeoutMin = System.getenv('E2E_AGREEMENT_QUEUE_TIMEOUT_MINUTES')?.trim()
     if (queueTimeoutMin) {
         systemProperty 'e2e.agreementQueueTimeoutMinutes', queueTimeoutMin
+    }
+    def dt2Root = (System.getProperty('e2e.dt2rcm.root') ?: findProperty('e2e.dt2rcm.root'))?.toString()?.trim()
+    if (!dt2Root) {
+        dt2Root = System.getenv('DT2RCM_AUTOMATION_ROOT')?.trim()
+    }
+    if (dt2Root) {
+        systemProperty 'e2e.dt2rcm.root', dt2Root
     }
     testLogging {
         events 'passed', 'skipped', 'failed'

@@ -71,6 +71,7 @@ If the workflow input **Require club catalog** is `true`, or you set `E2E_REQUIR
 | `EAPI_APP_ID` | `app_id` header |
 | `EAPI_APP_KEY` | `app_key` header |
 | `EAPI_AUTHORIZATION` | `Authorization` header (e.g. `Basic …`) |
+| `DT2RCM_AUTOMATION_ROOT` | Optional absolute path to a **local** **dt2rcm_automation** repo root. If the three `EAPI_*` variables are unset, the suite reads `APP_ID_WITH_AUTH`, `APP_KEY_WITH_AUTH`, and `BASIC` from `api/.../EApiHelper.java` — same credentials **:obc** tests use, without copying secrets into this repo. If this variable is unset, the loader also checks a **sibling** folder `../dt2rcm_automation-1` (or `../dt2rcm_automation`) next to the current working directory. JVM override: `-De2e.dt2rcm.root=/path/to/dt2rcm_automation-1`. |
 | `E2E_CLUB_NUMBER` | Club number (default `06060`) |
 | `E2E_PAYMENT_PLAN` | Plan name from **Get All Plans** (default `INSTALLMENT`) |
 | `E2E_CLUBS_JSON_PATH` | Optional absolute path to alternate `clubs.json` |
@@ -296,3 +297,9 @@ src/test/java/com/membertransfer/e2e/eapi/
 ## Relationship to `dt2rcm_automation`
 
 This repo **reimplements a minimal slice** of the internal API models and HTTP calls used for agreement creation, so it can evolve on its own. When internal DTOs or headers change, update the corresponding classes here or consider publishing a shared internal artifact later.
+
+### Why dt2rcm “just works” locally but Member-transfer used to fail
+
+**dt2rcm_automation** keeps QA/dev eAPI application credentials in source (`api/.../EApiHelper.java` — `APP_ID_WITH_AUTH`, `APP_KEY_WITH_AUTH`, `BASIC`). **Member-transfer** is a public-friendly repo and does **not** commit those strings. Until you export `EAPI_APP_ID` / `EAPI_APP_KEY` / `EAPI_AUTHORIZATION`, older runs failed with `IllegalStateException`.
+
+**Now:** if those env vars are unset, Member-transfer tries **`Dt2rcmEApiCredentialBridge`**: read the same three literals from a **local** dt2rcm checkout (`DT2RCM_AUTOMATION_ROOT` or sibling `../dt2rcm_automation-1`). CI (GitHub-hosted) should still use **Actions secrets**; do not rely on the bridge on runners that do not clone dt2rcm next to this repo.
