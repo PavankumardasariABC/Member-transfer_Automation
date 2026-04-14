@@ -1,36 +1,15 @@
-# Manual agreement E2E: pick stack, club, plan, and how many agreements to create.
-# When agreement_count > 1, spins up min(agreement_count, max_parallel) matrix jobs
-# (pods); each job creates a disjoint stripe so wall clock stays close to one agreement
-# when max_parallel >= agreement_count.
+# Manual agreement E2E — same shape as a typical internal "Billing API" style workflow:
+# checkout → JDK → Gradle test with secrets in env → optional artifact.
 #
-# Secrets: EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
-#
-# Results: each shard uploads JSON under agreement-results-*; the agreement-summary job
-# posts a combined table to the workflow run summary (Actions UI → this run → Summary).
-#
-# One-time setup: Repository → Settings → Secrets and variables → Actions → add
-#   EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
-# Then: Actions → this workflow → Run workflow.
-#
-# Internal eAPI hostnames (e.g. *.abcfitness.net) often do not resolve on GitHub-hosted
-# runners. Use workflow input agreement_runs_on with your self-hosted runner labels.
-# Day-to-day CI (compile only, no eAPI): see gradle-build.yml on push/PR.
+# Secrets (repository → Settings → Actions): EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
 
 name: eAPI Create Agreement E2E
-
-permissions:
-  contents: read
-  actions: write
-
-concurrency:
-  group: eapi-create-agreement-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: false
 
 on:
   workflow_dispatch:
     inputs:
       environment_profile:
-        description: 'Stack profile → eapiBaseUrl in src/main/resources/e2e/environments.json'
+        description: 'Target stack (eapiBaseUrl from src/main/resources/e2e/environments.json)'
         type: choice
         required: true
         default: qa-eapi-dev
@@ -49,70 +28,34 @@ on:
         required: true
         default: INSTALLMENT
       agreement_count:
-        description: 'Total agreements to create across all runners (1–100)'
+        description: 'How many agreements to create on this run (1–100, sequential in one job)'
         type: string
         required: true
         default: '1'
-      max_parallel:
-        description: 'Max concurrent matrix jobs (pods); set ≥ agreement_count for full parallelism'
-        type: string
-        required: true
-        default: '20'
       require_club_catalog:
         description: 'If true, club_number must exist in e2e/clubs.json'
         type: boolean
         required: true
         default: false
-      agreement_runs_on:
-        description: 'Runner labels as JSON array (runs-on). Default ["ubuntu-latest"] = GitHub cloud. For internal eAPI use self-hosted labels, e.g. ["self-hosted","linux","x64"]. See README → CI without self-hosted runners.'
+      test_class:
+        description: 'Optional full class name (overrides default agreement test)'
         type: string
         required: false
-        default: '["ubuntu-latest"]'
+        default: ''
+
+permissions:
+  contents: read
+  actions: write # upload-artifact
+
+concurrency:
+  group: eapi-create-agreement-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  shard-matrix:
+  agreement-e2e:
     runs-on: ubuntu-latest
-    outputs:
-      indices: ${{ steps.calc.outputs.indices }}
-      total: ${{ steps.calc.outputs.total }}
-      shards: ${{ steps.calc.outputs.shards }}
     steps:
-      - name: Compute shard indices
-        id: calc
-        env:
-          AGREEMENT_COUNT: ${{ inputs.agreement_count }}
-          MAX_PARALLEL: ${{ inputs.max_parallel }}
-        run: |
-          python3 << 'PY'
-          import json
-          import os
-
-          total = int(os.environ["AGREEMENT_COUNT"].strip())
-          max_parallel = int(os.environ["MAX_PARALLEL"].strip())
-          if total < 1 or total > 100:
-              raise SystemExit("agreement_count must be between 1 and 100")
-          if max_parallel < 1 or max_parallel > 100:
-              raise SystemExit("max_parallel must be between 1 and 100")
-          shards = min(total, max_parallel)
-          indices = list(range(shards))
-          out = os.environ["GITHUB_OUTPUT"]
-          with open(out, "a", encoding="utf-8") as f:
-              f.write("indices=" + json.dumps(indices) + "\n")
-              f.write(f"total={total}\n")
-              f.write(f"shards={shards}\n")
-          print("total=", total, "shards=", shards, "indices=", indices)
-          PY
-
-  create-agreement:
-    needs: shard-matrix
-    runs-on: ${{ fromJSON(inputs.agreement_runs_on) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        shard_index: ${{ fromJson(needs.shard-matrix.outputs.indices) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -121,31 +64,7 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: eAPI host DNS (must resolve on runner)
-        env:
-          E2E_ENV_PROFILE: ${{ inputs.environment_profile }}
-        run: python3 .github/scripts/check_eapi_dns.py
-
-      - name: Verify eAPI Action secrets
-        env:
-          SECRETS_HELP_URL: https://github.com/${{ github.repository }}/settings/secrets/actions
-          # Same bindings as the Gradle step — the shell only sees secrets if they are passed here.
-          EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
-          EAPI_APP_KEY: ${{ secrets.EAPI_APP_KEY }}
-          EAPI_AUTHORIZATION: ${{ secrets.EAPI_AUTHORIZATION }}
-        run: |
-          missing=0
-          echo "::notice::eAPI credentials must be stored as Actions secrets (values are never in git). Configure: ${SECRETS_HELP_URL}"
-          for name in EAPI_APP_ID EAPI_APP_KEY EAPI_AUTHORIZATION; do
-            val="${!name}"
-            if [ -z "${val}" ]; then
-              echo "::error::Secret ${name} is empty or unset. Add all three at ${SECRETS_HELP_URL} (exact names). Fork PR workflows do not receive secrets."
-              missing=1
-            fi
-          done
-          exit "$missing"
-
-      - name: Run agreement E2E (shard ${{ matrix.shard_index }})
+      - name: Run tests
         env:
           EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
           EAPI_APP_KEY: ${{ secrets.EAPI_APP_KEY }}
@@ -154,80 +73,26 @@ jobs:
           E2E_CLUB_NUMBER: ${{ inputs.club_number }}
           E2E_PAYMENT_PLAN: ${{ inputs.payment_plan }}
           E2E_REQUIRE_CLUB_CATALOG: ${{ inputs.require_club_catalog }}
-          E2E_TOTAL_AGREEMENTS: ${{ needs.shard-matrix.outputs.total }}
-          E2E_SHARD_COUNT: ${{ needs.shard-matrix.outputs.shards }}
-          E2E_SHARD_INDEX: ${{ matrix.shard_index }}
+          E2E_TOTAL_AGREEMENTS: ${{ inputs.agreement_count }}
+          E2E_SHARD_COUNT: '1'
+          E2E_SHARD_INDEX: '0'
+          OPTIONAL_TEST_CLASS: ${{ inputs.test_class }}
         run: |
-          chmod +x gradlew
-          ./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest --no-daemon
+          chmod +x ./gradlew
+          if [ -n "${OPTIONAL_TEST_CLASS}" ]; then
+            ./gradlew test --no-daemon --tests "${OPTIONAL_TEST_CLASS}"
+          else
+            ./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+          fi
 
-      - name: Shard ${{ matrix.shard_index }} — job summary (JSON)
+      - name: Results summary
         if: always()
-        run: |
-          python3 << 'PY'
-          import json
-          import os
-          import pathlib
+        run: python3 .github/scripts/summarize_agreement_results.py build/e2e-agreement-results
 
-          idx = "${{ matrix.shard_index }}"
-          p = pathlib.Path("build/e2e-agreement-results", f"agreements-shard-{idx}.json")
-          sm = os.environ.get("GITHUB_STEP_SUMMARY", "")
-          if not sm:
-              raise SystemExit(0)
-          with open(sm, "a", encoding="utf-8") as out:
-              out.write(f"## Shard {idx} — agreement JSON\n\n")
-              if p.is_file():
-                  with p.open(encoding="utf-8") as f:
-                      data = json.load(f)
-                  body = json.dumps(data, indent=2)
-                  if len(body) > 24000:
-                      body = body[:24000] + "\n… (truncated)"
-                  out.write("<details><summary>agreements-shard-" + idx + ".json</summary>\n\n")
-                  out.write("```json\n" + body + "\n```\n\n")
-                  out.write("</details>\n\n")
-              else:
-                  out.write("_No `build/e2e-agreement-results/agreements-shard-" + idx + ".json` (tests failed before write or no agreements on this shard)._\n\n")
-          PY
-
-      - name: Upload shard results (for combined summary)
+      - name: Upload agreement results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: agreement-results-${{ matrix.shard_index }}
+          name: agreement-results
           path: build/e2e-agreement-results/
           if-no-files-found: ignore
-
-  agreement-summary:
-    name: Agreement results (combined)
-    needs: [shard-matrix, create-agreement]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all shard artifacts
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          path: downloaded
-          pattern: agreement-results-*
-          merge-multiple: true
-
-      - name: Write workflow inputs to summary
-        run: |
-          {
-            echo "## QA / stack inputs (this run)"
-            echo ""
-            echo "- **environment_profile:** ${{ inputs.environment_profile }}"
-            echo "- **club_number:** ${{ inputs.club_number }}"
-            echo "- **payment_plan:** ${{ inputs.payment_plan }}"
-            echo "- **agreement_count:** ${{ inputs.agreement_count }}"
-            echo "- **max_parallel:** ${{ inputs.max_parallel }}"
-            echo "- **require_club_catalog:** ${{ inputs.require_club_catalog }}"
-            echo "- **shards computed:** ${{ needs.shard-matrix.outputs.shards }}"
-            echo ""
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Combined agreements table
-        run: python3 .github/scripts/summarize_agreement_results.py downloaded

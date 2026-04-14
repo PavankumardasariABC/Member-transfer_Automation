@@ -13,7 +13,7 @@ Many internal eAPI URLs **do not resolve** from GitHub’s **hosted** runners (`
 | [**Gradle build**](.github/workflows/gradle-build.yml) | Every **push** / **pull request** to `main` or `master` | **No** — only `compileJava` / `compileTestJava`. Use this as your default **green CI** for the team. |
 | [**eAPI Create Agreement E2E**](.github/workflows/eapi-create-agreement.yml) | **Manual** (workflow_dispatch) | **Yes** — secrets + network to eAPI. On hosted runners, internal DNS usually **fails** until your org adds **self-hosted** runners or a **publicly resolvable** eAPI host. |
 
-**Practical setup for a new team repo:** enable the **Gradle build** workflow so PRs stay healthy. Treat **agreement E2E** as an **optional** manual workflow (or run the same test **locally** with `export EAPI_*` / `E2E_*`). When your org later provides self-hosted runners, set **`agreement_runs_on`** to your runner labels and add the three **Actions secrets**.
+**Practical setup for a new team repo:** enable the **Gradle build** workflow so PRs stay healthy. Add the three **Actions secrets** for anyone who runs the manual **eAPI Create Agreement E2E** workflow. If eAPI hostnames are internal-only, that workflow may still fail on `ubuntu-latest` from **DNS/network** — run the same Gradle test **locally** or on **internal CI** in that case.
 
 ## Prerequisites
 
@@ -206,41 +206,24 @@ export EAPI_AUTHORIZATION='…' # same as BASIC
 
 **Inputs at run time:**
 
-- **agreement_runs_on** — JSON array for `runs-on` of each **create-agreement** matrix job. Default `["ubuntu-latest"]` (public; internal eAPI DNS usually fails). For internal eAPI, use your self-hosted labels, e.g. `["self-hosted","linux","x64"]`.
 - **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`).
 - **club_number** — e.g. `06060`.
 - **payment_plan** — e.g. `INSTALLMENT`, `CASH`.
 - **require_club_catalog** — boolean; if `true`, `club_number` must appear in `e2e/clubs.json`.
-- **agreement_count** — total agreements to create (1–100).
-- **max_parallel** — maximum concurrent GitHub runners (1–100). The workflow uses `shards = min(agreement_count, max_parallel)` matrix jobs. Set **`max_parallel ≥ agreement_count`** (e.g. both `20`) so each agreement runs on its own pod in parallel and wall time stays close to **one** agreement creation.
-
-**How sharding works:** shard `i` creates agreement indices `i, i + shards, i + 2*shards, …` until `agreement_count` is covered. Example: `agreement_count=20`, `max_parallel=20` → 20 jobs, each creates **one** agreement. Example: `agreement_count=50`, `max_parallel=20` → 20 jobs; each job creates two or three agreements **sequentially** on that runner (longer wall time).
+- **agreement_count** — how many agreements to create in **one** job (1–100), **sequentially** (same as local `E2E_TOTAL_AGREEMENTS` with a single shard).
+- **test_class** — optional full TestNG class name; empty = default `CreateAgreementE2ETest`.
 
 ### Where to see results (QA run)
 
 1. Open **Actions** → **eAPI Create Agreement E2E** → select your workflow run.
-2. **Summary** (top of the run page): the **Agreement results (combined)** job appends a markdown section with **workflow inputs** (profile = QA stack `qa-eapi-dev`, club, plan, counts) and a **table of every agreement** created (slot, agreement #, member id, barcode, name).
-3. Each **matrix job** (“Shard *”) also writes a collapsible **JSON** block in that job’s own summary with the raw `agreements-shard-N.json`.
-4. **Artifacts:** download `agreement-results-0`, `agreement-results-1`, … — each contains `build/e2e-agreement-results/agreements-shard-N.json` for auditing or re-processing.
+2. **Summary**: the **Results summary** step appends a markdown table from `agreements-shard-0.json` when present.
+3. **Artifacts:** download **`agreement-results`** — contains `build/e2e-agreement-results/` (e.g. `agreements-shard-0.json`).
 
 Locally, the same JSON is written under `build/e2e-agreement-results/` after `./gradlew test`.
 
 **Troubleshooting — `IllegalStateException` when creating `EApiAgreementClient`:** the test JVM could not read `EAPI_APP_ID` / `EAPI_APP_KEY` / `EAPI_AUTHORIZATION`. Confirm the three **repository Action secrets** exist (exact names) and re-run. The Gradle build now copies these variables into the forked test process explicitly so GitHub Actions picks them up reliably.
 
-**Troubleshooting — `java.net.UnknownHostException` / eAPI DNS step fails on GitHub Actions:** GitHub-hosted `ubuntu-latest` uses the **public internet**. Internal hostnames (e.g. `eapi.dev.abcfitness.net`) often **do not resolve** there, so the **eAPI host DNS** step or the test fails with `UnknownHostException`.
-
-**Option A — self-hosted runners (typical for internal eAPI):** register a [self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners) on a machine that can resolve and reach your eAPI. When you **Run workflow**, set **agreement_runs_on** to a **JSON array** of runner labels, for example:
-
-- `["self-hosted","linux","x64"]` if your pool uses those labels  
-- or `["self-hosted","my-team-eapi"]` if you use a custom label  
-
-Keep the default `["ubuntu-latest"]` only if your eAPI hostname is reachable from the public internet.
-
-**Option B — IT exposes eAPI** to public DNS (or split-horizon that answers public resolvers used by GitHub).
-
-**Option C — no public/self-hosted path:** run agreement E2E **locally** or on **internal CI** only.
-
-The workflow step **eAPI host DNS** fails fast with the same resolver check before Gradle when you use hosted runners.
+**Troubleshooting — `java.net.UnknownHostException` on GitHub Actions:** `ubuntu-latest` is on the **public internet**. Internal eAPI hostnames often **do not resolve** there. Use **Gradle build** for compile-only CI; run agreement E2E **locally** / **internal CI**, or ask your org for [self-hosted runners](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners) / public DNS to eAPI.
 
 **Repository secrets** (Settings → Secrets and variables → Actions):
 
@@ -254,8 +237,7 @@ The workflow step **eAPI host DNS** fails fast with the same resolver check befo
 
 ```yaml
 jobs:
-  create-agreement:
-    needs: shard-matrix
+  agreement-e2e:
     runs-on: ubuntu-latest
     environment: qa   # name of your GitHub Environment
 ```

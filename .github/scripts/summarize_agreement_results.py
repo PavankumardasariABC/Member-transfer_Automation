@@ -56,7 +56,7 @@ def main() -> int:
 
     files = list(iter_result_files(root))
     if not files:
-        lines.append("_No result JSON files were found. Matrix jobs may have failed before writing results._")
+        lines.append("_No result JSON files were found (tests may have failed before writing results)._")
     for path in files:
         rm, ag, fl = parse_file(path)
         run_meta.update(rm)
