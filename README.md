@@ -4,6 +4,17 @@ Standalone **Gradle + TestNG** end-to-end automation for **eAPI agreement creati
 
 Repository: [https://github.com/PavankumardasariABC/Member-transfer_Automation](https://github.com/PavankumardasariABC/Member-transfer_Automation)
 
+### CI when you do **not** have self-hosted runners
+
+Many internal eAPI URLs **do not resolve** from GitHub’s **hosted** runners (`ubuntu-latest`). That is normal—not a bug in this repo.
+
+| Workflow | When it runs | Needs eAPI / secrets? |
+|----------|----------------|------------------------|
+| [**Gradle build**](.github/workflows/gradle-build.yml) | Every **push** / **pull request** to `main` or `master` | **No** — only `compileJava` / `compileTestJava`. Use this as your default **green CI** for the team. |
+| [**eAPI Create Agreement E2E**](.github/workflows/eapi-create-agreement.yml) | **Manual** (workflow_dispatch) | **Yes** — secrets + network to eAPI. On hosted runners, internal DNS usually **fails** until your org adds **self-hosted** runners or a **publicly resolvable** eAPI host. |
+
+**Practical setup for a new team repo:** enable the **Gradle build** workflow so PRs stay healthy. Treat **agreement E2E** as an **optional** manual workflow (or run the same test **locally** with `export EAPI_*` / `E2E_*`). When your org later provides self-hosted runners, set **`agreement_runs_on`** to your runner labels and add the three **Actions secrets**.
+
 ## Prerequisites
 
 - **JDK 17**

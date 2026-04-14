@@ -14,6 +14,7 @@
 #
 # Internal eAPI hostnames (e.g. *.abcfitness.net) often do not resolve on GitHub-hosted
 # runners. Use workflow input agreement_runs_on with your self-hosted runner labels.
+# Day-to-day CI (compile only, no eAPI): see gradle-build.yml on push/PR.
 
 name: eAPI Create Agreement E2E
 

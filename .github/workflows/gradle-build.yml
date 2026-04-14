@@ -1,0 +1,37 @@
+# Compiles main + test sources on every push/PR. No eAPI, no secrets, works on GitHub-hosted runners.
+# Use this as your default “green CI” signal. Real agreement E2E stays in eapi-create-agreement.yml
+# (manual) and usually needs self-hosted runners or a local run for internal eAPI hostnames.
+
+name: Gradle build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gradle-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Compile
+        run: |
+          chmod +x gradlew
+          ./gradlew compileJava compileTestJava --no-daemon
