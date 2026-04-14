@@ -154,6 +154,41 @@ done
 
 If all three show `set` locally but GitHub still reports empty secrets, the secrets were almost certainly added on a **different** GitHub repository or account than the one running the workflow—open the run URL and add secrets on **that** repo’s Settings page.
 
+### Same eAPI headers as `dt2rcm_automation` (Create Agreement)
+
+In **dt2rcm_automation**, `CreateAgreementTest` calls `eApiFactory.createAgreement`, which uses **`HEADERS_WITH_AUTH`** from `api/src/main/java/com/abcfinancial/api/apps/eapi/EApiHelper.java` (`app_id`, `app_key`, `Authorization`).
+
+Copy the **string literals** from that file into GitHub secrets (or into your shell `export`s) using this mapping:
+
+| Member-transfer / GitHub secret | dt2rcm `EApiHelper` constant |
+|---------------------------------|------------------------------|
+| `EAPI_APP_ID` | `APP_ID_WITH_AUTH` |
+| `EAPI_APP_KEY` | `APP_KEY_WITH_AUTH` |
+| `EAPI_AUTHORIZATION` | `BASIC` (entire `Authorization` header value, including the `Basic ` prefix) |
+
+**Run the dt2rcm agreement test locally** (from the **dt2rcm_automation** repo root; uses QA eAPI URL from `obc/src/test/resources/services.json` and dev club `06060`, aligned with Member-transfer profile **`qa-eapi-dev`**):
+
+```bash
+cd /path/to/dt2rcm_automation
+./gradlew :obc:test --tests com.abcfinancial.test.eapi.agreement.CreateAgreementTest \
+  -DenvType=qa -DreskinEnv=dev -DclubNumber=06060
+```
+
+For **staging** defaults (`config.properties` uses `stg` / `07038`), use `-DenvType=stg -DreskinEnv=stg -DclubNumber=07038` (and workflow profile **`staging`** in Member-transfer).
+
+**Then run Member-transfer with the same three headers** (after exporting the same values you copied from `EApiHelper`):
+
+```bash
+cd /path/to/Member-transfer_Automation
+export E2E_ENV_PROFILE='qa-eapi-dev'
+export EAPI_APP_ID='…'        # same as APP_ID_WITH_AUTH
+export EAPI_APP_KEY='…'      # same as APP_KEY_WITH_AUTH
+export EAPI_AUTHORIZATION='…' # same as BASIC
+./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest --no-daemon
+```
+
+**Security note:** dt2rcm currently embeds those values in source; Member-transfer expects them as **secrets** or local env so they are not committed to a public repo. Prefer rotating credentials if they were ever exposed.
+
 **Inputs at run time:**
 
 - **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`).
