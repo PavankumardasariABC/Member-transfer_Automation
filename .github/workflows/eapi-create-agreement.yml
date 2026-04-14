@@ -78,7 +78,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew compileJava compileTestJava --no-daemon
 
-      - name: Run agreement E2E
+      - name: Run agreement E2E (calls live eAPI — often fails on ubuntu-latest for internal DNS)
         if: inputs.run_mode == 'agreement-e2e'
         env:
           EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
