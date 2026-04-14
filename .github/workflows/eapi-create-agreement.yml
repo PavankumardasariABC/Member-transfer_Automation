@@ -64,7 +64,7 @@ on:
         required: true
         default: false
       agreement_runs_on:
-        description: 'JSON array for runs-on of agreement matrix jobs. ["ubuntu-latest"] = public (internal eAPI DNS usually fails). Use self-hosted labels inside your network, e.g. ["self-hosted","linux","x64","my-runner-group"].'
+        description: 'Runner labels as JSON array (runs-on). Default ["ubuntu-latest"] = GitHub cloud. For internal eAPI use self-hosted labels, e.g. ["self-hosted","linux","x64"]. See README → CI without self-hosted runners.'
         type: string
         required: false
         default: '["ubuntu-latest"]'
