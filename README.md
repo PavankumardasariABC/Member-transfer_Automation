@@ -4,6 +4,8 @@ Standalone **Gradle + TestNG** end-to-end automation for **eAPI agreement creati
 
 Repository: [https://github.com/PavankumardasariABC/Member-transfer_Automation](https://github.com/PavankumardasariABC/Member-transfer_Automation)
 
+**Leadership / architecture wiki (POC, Cursor usage, dt2rcm comparison, timing):** [docs/WIKI-Executive-and-Technical-Overview.md](docs/WIKI-Executive-and-Technical-Overview.md)
+
 ### CI when you do **not** have self-hosted runners
 
 Many internal eAPI URLs **do not resolve** from GitHub’s **hosted** runners (`ubuntu-latest`). That is normal—not a bug in this repo.

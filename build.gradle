@@ -32,6 +32,14 @@ dependencies {
 
 tasks.named('test', Test) {
     useTestNG()
+    // Parallel Gradle processes (same repo, different E2E_SHARD_INDEX) must not share test output paths,
+    // or XML/binary writers race and :test can mis-incremental.
+    def shardTag = (System.getenv('E2E_SHARD_INDEX') ?: findProperty('e2e.shardIndex'))?.toString()?.trim()
+    if (shardTag == null || shardTag.isEmpty()) {
+        shardTag = 'single'
+    }
+    binaryResultsDirectory = file("$buildDir/test-results/binary-shard-$shardTag")
+    reports.junitXml.outputLocation = file("$buildDir/test-results/junit-xml-shard-$shardTag")
     // Forked TestNG workers do not always inherit the runner's OS environment; copy known CI vars explicitly.
     [
             'EAPI_APP_ID', 'EAPI_APP_KEY', 'EAPI_AUTHORIZATION', 'EAPI_BASE_URL',
