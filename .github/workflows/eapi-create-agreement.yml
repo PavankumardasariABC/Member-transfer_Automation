@@ -65,6 +65,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Selected run_mode
+        run: |
+          echo "========================================"
+          echo "run_mode=${{ inputs.run_mode }}"
+          echo "========================================"
+          if [ "${{ inputs.run_mode }}" = "compile-only" ]; then
+            echo "::notice::compile-only — Gradle will compile only (no eAPI). Expect success on ubuntu-latest."
+          else
+            echo "::warning::agreement-e2e — calls live eAPI. Internal eAPI hostnames usually fail on GitHub-hosted (UnknownHostException). Re-run with run_mode compile-only for a green job here."
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
