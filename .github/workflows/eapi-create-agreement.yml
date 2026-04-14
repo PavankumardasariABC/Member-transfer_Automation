@@ -11,6 +11,9 @@
 # One-time setup: Repository → Settings → Secrets and variables → Actions → add
 #   EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
 # Then: Actions → this workflow → Run workflow.
+#
+# Internal eAPI hostnames (e.g. *.abcfitness.net) often do not resolve on GitHub-hosted
+# runners. Use workflow input agreement_runs_on with your self-hosted runner labels.
 
 name: eAPI Create Agreement E2E
 
@@ -59,6 +62,11 @@ on:
         type: boolean
         required: true
         default: false
+      agreement_runs_on:
+        description: 'JSON array for runs-on of agreement matrix jobs. ["ubuntu-latest"] = public (internal eAPI DNS usually fails). Use self-hosted labels inside your network, e.g. ["self-hosted","linux","x64","my-runner-group"].'
+        type: string
+        required: false
+        default: '["ubuntu-latest"]'
 
 jobs:
   shard-matrix:
@@ -96,7 +104,7 @@ jobs:
 
   create-agreement:
     needs: shard-matrix
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.agreement_runs_on) }}
     strategy:
       fail-fast: false
       matrix:

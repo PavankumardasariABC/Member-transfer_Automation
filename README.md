@@ -195,6 +195,7 @@ export EAPI_AUTHORIZATION='…' # same as BASIC
 
 **Inputs at run time:**
 
+- **agreement_runs_on** — JSON array for `runs-on` of each **create-agreement** matrix job. Default `["ubuntu-latest"]` (public; internal eAPI DNS usually fails). For internal eAPI, use your self-hosted labels, e.g. `["self-hosted","linux","x64"]`.
 - **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`).
 - **club_number** — e.g. `06060`.
 - **payment_plan** — e.g. `INSTALLMENT`, `CASH`.
@@ -215,7 +216,20 @@ Locally, the same JSON is written under `build/e2e-agreement-results/` after `./
 
 **Troubleshooting — `IllegalStateException` when creating `EApiAgreementClient`:** the test JVM could not read `EAPI_APP_ID` / `EAPI_APP_KEY` / `EAPI_AUTHORIZATION`. Confirm the three **repository Action secrets** exist (exact names) and re-run. The Gradle build now copies these variables into the forked test process explicitly so GitHub Actions picks them up reliably.
 
-**Troubleshooting — `java.net.UnknownHostException` on GitHub Actions (test passes locally):** the workflow uses **GitHub-hosted** `ubuntu-latest` runners on the **public internet**. Hostnames such as `eapi.dev.abcfitness.net` from `environments.json` must **resolve via public DNS** from that network. Many internal-only corporate endpoints do not, so you get `UnknownHostException` when the test first calls eAPI (e.g. **Get All Plans**). Mitigations your org may use: run this workflow on a **self-hosted** Actions runner inside the corporate network, ask IT for a **publicly resolvable** eAPI hostname (or split-horizon DNS) for CI, or keep agreement E2E on **internal CI / your laptop** only. The workflow step **eAPI host DNS** fails fast with the same check before Gradle runs.
+**Troubleshooting — `java.net.UnknownHostException` / eAPI DNS step fails on GitHub Actions:** GitHub-hosted `ubuntu-latest` uses the **public internet**. Internal hostnames (e.g. `eapi.dev.abcfitness.net`) often **do not resolve** there, so the **eAPI host DNS** step or the test fails with `UnknownHostException`.
+
+**Option A — self-hosted runners (typical for internal eAPI):** register a [self-hosted runner](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners) on a machine that can resolve and reach your eAPI. When you **Run workflow**, set **agreement_runs_on** to a **JSON array** of runner labels, for example:
+
+- `["self-hosted","linux","x64"]` if your pool uses those labels  
+- or `["self-hosted","my-team-eapi"]` if you use a custom label  
+
+Keep the default `["ubuntu-latest"]` only if your eAPI hostname is reachable from the public internet.
+
+**Option B — IT exposes eAPI** to public DNS (or split-horizon that answers public resolvers used by GitHub).
+
+**Option C — no public/self-hosted path:** run agreement E2E **locally** or on **internal CI** only.
+
+The workflow step **eAPI host DNS** fails fast with the same resolver check before Gradle when you use hosted runners.
 
 **Repository secrets** (Settings → Secrets and variables → Actions):
 
