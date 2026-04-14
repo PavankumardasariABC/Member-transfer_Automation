@@ -78,6 +78,7 @@ If the workflow input **Require club catalog** is `true`, or you set `E2E_REQUIR
 | `E2E_TOTAL_AGREEMENTS` | Total agreements to create on this run (default `1`, max `100`) |
 | `E2E_SHARD_COUNT` | How many parallel shards (matrix size); default `1` (single process creates all) |
 | `E2E_SHARD_INDEX` | Zero-based shard id in `[0, E2E_SHARD_COUNT)`; default `0` |
+| `E2E_AGREEMENT_QUEUE_TIMEOUT_MINUTES` | Max minutes to poll **Get Member Info** until `currentQueue` is **Posted** (default **40**, same as dt2rcm `ApiAwaitUtils` for agreements). JVM override: `-De2e.agreementQueueTimeoutMinutes=…` |
 
 ## Gradle properties (optional)
 
@@ -247,9 +248,13 @@ Then remove duplicate secrets from the repository level or keep repository secre
 
 ## What the agreement test does
 
+Aligned with **dt2rcm_automation** `CreateAgreementTest` (create → success → wait **Posted** → member **Active** → **GET payment methods** + card/slot assertions):
+
 1. Resolves **shard** settings (`E2E_TOTAL_AGREEMENTS`, `E2E_SHARD_COUNT`, `E2E_SHARD_INDEX`) and prints the resolved **environment profile** and **club catalog** entry.
-2. For each agreement index assigned to this shard: calls **Get All Plans** / **Get Payment Plan Info**, builds **Create Agreement** JSON (synthetic contact + draft Visa, Luhn-valid PAN), posts create, asserts `success`, **Get Member Info**, and prints `slot`, `memberId`, `agreementNumber`, `barcode`, and name.
-3. With defaults (`total=1`, one shard), behavior matches a single-agreement run.
+2. For each agreement index on this shard: **Get All Plans** / **Get Payment Plan Info** → build **Create Agreement** (synthetic contact + draft Visa, Luhn-valid PAN) → POST create → assert status **success** → print `CREATED_AGREEMENT …`.
+3. **Poll** **Get Member Info** until `currentQueue` is **Posted** (same wait semantics as dt2rcm `waitForAgreementHasQueueStatus`, default timeout 40 minutes, 15s poll).
+4. Assert member **Active** and queue **Posted**; **GET** `…/wallets/paymentmethods` and assert names, last four, card type, exp, method type **Credit Card**, slots **CardOnFile** + **ClubBilling** (TestNG `SoftAssert`, then `assertAll`).
+5. Append shard JSON + print `E2E OK …` line. With defaults (`total=1`, one shard), one full agreement run.
 
 ### Local multi-agreement (single machine, sequential)
 
@@ -273,10 +278,12 @@ src/main/resources/e2e/
 
 src/main/java/com/membertransfer/e2e/
   config/             # EApiEnvironment, E2eCatalog, E2eShardConfig
+  constants/          # ApiRequestStatus, MemberStatus, QueueStatus, PaymentSlot, … (dt2rcm parity)
+  apps/pg/            # CardBrand (dt2rcm parity)
   eapi/               # REST clients
   http/               # RestAssured base configuration
-  model/              # Request/response DTOs
-  support/            # Agreement builders + test data
+  model/              # Request/response DTOs (+ wallet PaymentMethodsResponse)
+  support/            # Agreement builders, EApiAgreementAwait, test data
 
 src/test/java/com/membertransfer/e2e/eapi/
   CreateAgreementE2ETest.java

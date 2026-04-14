@@ -1,5 +1,6 @@
 package com.membertransfer.e2e.config;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -34,7 +35,32 @@ public final class EApiEnvironment {
     public static final String ENV_APP_KEY = "EAPI_APP_KEY";
     public static final String ENV_AUTHORIZATION = "EAPI_AUTHORIZATION";
 
+    public static final String PROP_AGREEMENT_QUEUE_TIMEOUT_MIN = "e2e.agreementQueueTimeoutMinutes";
+    public static final String ENV_AGREEMENT_QUEUE_TIMEOUT_MIN = "E2E_AGREEMENT_QUEUE_TIMEOUT_MINUTES";
+
     private EApiEnvironment() {
+    }
+
+    /**
+     * Max wait for agreement {@code currentQueue} to reach Posted (dt2rcm default: 40 minutes).
+     */
+    public static Duration agreementQueueWaitTimeout() {
+        String raw = firstNonBlank(
+                System.getProperty(PROP_AGREEMENT_QUEUE_TIMEOUT_MIN),
+                System.getenv(ENV_AGREEMENT_QUEUE_TIMEOUT_MIN)
+        );
+        int minutes = 40;
+        if (raw != null && !raw.isBlank()) {
+            try {
+                minutes = Integer.parseInt(raw.trim());
+            } catch (NumberFormatException ignored) {
+                minutes = 40;
+            }
+        }
+        if (minutes < 1) {
+            minutes = 1;
+        }
+        return Duration.ofMinutes(minutes);
     }
 
     public static String baseUrl() {

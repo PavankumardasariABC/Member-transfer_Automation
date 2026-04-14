@@ -7,6 +7,7 @@ import com.membertransfer.e2e.model.agreement.CreateAgreementResponse;
 import com.membertransfer.e2e.model.member.MemberResponse;
 import com.membertransfer.e2e.model.paymentplan.AllPlansResponse;
 import com.membertransfer.e2e.model.paymentplan.PaymentPlanInfoResponse;
+import com.membertransfer.e2e.model.wallet.PaymentMethodsResponse;
 
 import java.util.Map;
 
@@ -21,6 +22,7 @@ public final class EApiAgreementClient {
     private static final String PAYMENT_PLAN_PATH = "rest/{clubNumber}/clubs/plans/{planId}";
     private static final String CREATE_AGREEMENT_PATH = "rest/{clubNumber}/members/agreements";
     private static final String MEMBER_INFO_PATH = "rest/{clubNumber}/members/{memberId}";
+    private static final String MEMBER_PAYMENT_METHODS_PATH = "rest/{clubNumber}/members/{memberId}/wallets/paymentmethods";
 
     private final String baseUrl;
     private final Map<String, String> headers;
@@ -103,5 +105,24 @@ public final class EApiAgreementClient {
                 .statusCode(200)
                 .extract()
                 .as(MemberResponse.class);
+    }
+
+    /** dt2rcm: {@code WalletEApi#getPaymentMethods}. */
+    public PaymentMethodsResponse getPaymentMethods(String clubNumber, String memberId) {
+        return RelaxedApi.with()
+                .baseUri(baseUrl)
+                .basePath(MEMBER_PAYMENT_METHODS_PATH)
+                .pathParam("clubNumber", EApiEnvironment.formatClubNumber(clubNumber))
+                .pathParam("memberId", memberId)
+                .headers(headers)
+                .accept(JSON)
+                .contentType(JSON)
+                .when()
+                .get()
+                .then()
+                .assertThat()
+                .statusCode(200)
+                .extract()
+                .as(PaymentMethodsResponse.class);
     }
 }

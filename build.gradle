@@ -16,6 +16,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.awaitility:awaitility:4.2.0'
     implementation 'io.rest-assured:rest-assured:5.4.0'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.0'
@@ -37,6 +38,7 @@ tasks.named('test', Test) {
             'E2E_ENV_PROFILE', 'E2E_CLUB_NUMBER', 'E2E_PAYMENT_PLAN',
             'E2E_TOTAL_AGREEMENTS', 'E2E_SHARD_COUNT', 'E2E_SHARD_INDEX',
             'E2E_REQUIRE_CLUB_CATALOG', 'E2E_CLUBS_JSON_PATH', 'E2E_RESULTS_DIR',
+            'E2E_AGREEMENT_QUEUE_TIMEOUT_MINUTES',
             'GITHUB_RUN_ID', 'GITHUB_REPOSITORY', 'GITHUB_SERVER_URL', 'GITHUB_WORKFLOW'
     ].each { String key ->
         String v = System.getenv(key)
@@ -112,6 +114,10 @@ tasks.named('test', Test) {
     }
     if (shardCount) {
         systemProperty 'e2e.shardCount', shardCount
+    }
+    def queueTimeoutMin = System.getenv('E2E_AGREEMENT_QUEUE_TIMEOUT_MINUTES')?.trim()
+    if (queueTimeoutMin) {
+        systemProperty 'e2e.agreementQueueTimeoutMinutes', queueTimeoutMin
     }
     testLogging {
         events 'passed', 'skipped', 'failed'

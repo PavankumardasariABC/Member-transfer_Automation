@@ -1,35 +1,44 @@
 package com.membertransfer.e2e.eapi;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.membertransfer.e2e.apps.pg.CardBrand;
 import com.membertransfer.e2e.config.E2eCatalog;
 import com.membertransfer.e2e.config.E2eShardConfig;
 import com.membertransfer.e2e.config.EApiEnvironment;
+import com.membertransfer.e2e.constants.ApiRequestStatus;
+import com.membertransfer.e2e.constants.MemberStatus;
+import com.membertransfer.e2e.constants.PaymentMethodsType;
+import com.membertransfer.e2e.constants.PaymentSlot;
+import com.membertransfer.e2e.constants.QueueStatus;
 import com.membertransfer.e2e.support.AgreementRequestFactory;
 import com.membertransfer.e2e.support.E2eAgreementResultRecorder;
+import com.membertransfer.e2e.support.EApiAgreementAwait;
 import org.testng.annotations.Test;
+import org.testng.asserts.SoftAssert;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
+import static com.membertransfer.e2e.constants.QueueStatus.POSTED;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 /**
- * End-to-end: resolve payment plan for a club, create agreement(s) via eAPI, read member back.
+ * End-to-end flow aligned with dt2rcm {@code CreateAgreementTest}:
+ * <ol>
+ *     <li>Create agreement (installment-like plan + draft card)</li>
+ *     <li>Assert create response success</li>
+ *     <li>Wait until member agreement {@code currentQueue} is Posted</li>
+ *     <li>Assert member Active + Posted queue</li>
+ *     <li>GET payment methods and assert card + slots (CardOnFile, ClubBilling)</li>
+ * </ol>
  * <p>
- * For parallel GitHub Actions matrix jobs, set {@code E2E_TOTAL_AGREEMENTS}, {@code E2E_SHARD_COUNT},
- * and {@code E2E_SHARD_INDEX} so each runner creates a disjoint subset in roughly the same wall time
- * as a single agreement when {@code E2E_SHARD_COUNT == E2E_TOTAL_AGREEMENTS}.
- * <p>
- * Results JSON is written under {@link E2eAgreementResultRecorder#DEFAULT_RESULTS_DIR} for workflow artifacts.
+ * Sharding / JSON artifacts: unchanged from original Member-transfer design.
  */
 public class CreateAgreementE2ETest {
 
-    private static final String SUCCESS = "success";
-
-    @Test(description = "Create agreement(s) (installment-like plan) via eAPI and verify member(s)")
+    @Test(description = "[EAPI] Create New Agreement (happy path) — same steps as dt2rcm CreateAgreementTest")
     public void createAgreement_happyPath() {
         int shardIndex = 0;
         int shardCount = 1;
@@ -61,18 +70,61 @@ public class CreateAgreementE2ETest {
             }
 
             for (int slot : slots) {
+                SoftAssert soft = new SoftAssert();
+
+                System.out.println("--- Step 1. Create new agreement (slot " + (slot + 1) + "/" + total + ") ---");
                 var request = AgreementRequestFactory.installmentLikeRequest(client, club, planName);
                 var response = client.createAgreement(club, request);
 
+                System.out.println("--- Step 2. Verify agreement is created ---");
                 assertNotNull(response.getStatus(), "status slot=" + slot);
-                assertEquals(response.getStatus().getMessage(), SUCCESS, "eAPI status message slot=" + slot);
+                soft.assertEquals(response.getStatus().getMessage(), ApiRequestStatus.SUCCESS.getStatus(),
+                        "Agreement creation failed");
 
                 assertNotNull(response.getMemberId(), "memberId slot=" + slot);
                 assertNotNull(response.getAgreementNumber(), "agreementNumber slot=" + slot);
 
-                var member = client.getMemberInfo(club, response.getMemberId());
-                assertNotNull(member.getMembers(), "member list slot=" + slot);
-                assertNotNull(member.getFirstName(), "firstName slot=" + slot);
+                System.out.printf("CREATED_AGREEMENT club=%s memberId=%s agreementNumber=%s barcode=%s%n",
+                        club, response.getMemberId(), response.getAgreementNumber(), response.getBarcode());
+
+                System.out.println("--- Wait: agreement queue Posted (dt2rcm ApiAwaitUtils.waitForAgreementHasQueueStatus) ---");
+                EApiAgreementAwait.waitForAgreementHasQueueStatus(POSTED, client, club, response.getMemberId());
+
+                System.out.println("--- Member info: Active + Posted ---");
+                var memberInfo = client.getMemberInfo(club, response.getMemberId());
+                soft.assertEquals(memberInfo.getMemberStatus(), MemberStatus.ACTIVE.getApiValue(),
+                        "Member status is not active");
+                soft.assertEquals(memberInfo.getCurrentQueue(), POSTED.getApiValue(),
+                        "Queue status is not Posted");
+
+                System.out.println("--- Step 3. Verify member payment method ---");
+                var paymentMethods = client.getPaymentMethods(club, response.getMemberId());
+                soft.assertEquals(paymentMethods.getStatus().getMessage(), ApiRequestStatus.SUCCESS.getStatus(),
+                        "Payment methods request failed");
+                soft.assertEquals(paymentMethods.getCreditCardFirstName(0), request.getCreditCardFirstName(),
+                        "First name is not correct");
+                soft.assertEquals(paymentMethods.getCreditCardLastName(0), request.getCreditCardLastName(),
+                        "Last name is not correct");
+                soft.assertEquals(paymentMethods.getCreditCardAccountNumberLastFour(0), request.getLastFourCCNUmber(),
+                        "Card number is not correct");
+                soft.assertEquals(paymentMethods.getCardType(0),
+                        CardBrand.getCardBrandByEapiValue(request.getCreditCardType()).getUiValue(),
+                        "Card Type is not correct");
+                soft.assertEquals(paymentMethods.getPaymentMethodType(0), PaymentMethodsType.CREDIT_CARD.getEapi(),
+                        "Credit Card is not correct");
+                soft.assertEquals(paymentMethods.getCreditCardExpMonth(0), request.getCreditCardExpMonth(),
+                        "Exp month is not correct");
+                soft.assertEquals(paymentMethods.getCreditCardExpYear(0), request.getCreditCardExpYear(),
+                        "Exp year is not correct");
+                soft.assertEquals(paymentMethods.getPaymentSlots(0).get(0), PaymentSlot.CARD_ON_FILE.getEapiValue(),
+                        "Payment slot is not correct");
+                soft.assertEquals(paymentMethods.getPaymentSlots(0).get(1), PaymentSlot.CLUB_BILLING.getEapiValue(),
+                        "Payment slot is not correct");
+
+                soft.assertAll();
+
+                assertNotNull(memberInfo.getMembers(), "member list slot=" + slot);
+                assertNotNull(memberInfo.getFirstName(), "firstName slot=" + slot);
 
                 agreementRows.add(E2eAgreementResultRecorder.agreementRow(
                         slot,
@@ -83,7 +135,7 @@ public class CreateAgreementE2ETest {
                         response.getMemberId(),
                         response.getAgreementNumber(),
                         response.getBarcode(),
-                        member.getDisplayName()));
+                        memberInfo.getDisplayName()));
 
                 System.out.printf(
                         "E2E OK slot=%d/%d shard=%d/%d club=%s plan=%s memberId=%s agreementNumber=%s barcode=%s memberName=%s%n",
@@ -96,7 +148,7 @@ public class CreateAgreementE2ETest {
                         response.getMemberId(),
                         response.getAgreementNumber(),
                         response.getBarcode(),
-                        member.getDisplayName());
+                        memberInfo.getDisplayName());
             }
         } catch (Throwable t) {
             failure = t;
