@@ -206,7 +206,8 @@ export EAPI_AUTHORIZATION='…' # same as BASIC
 
 **Inputs at run time:**
 
-- **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`).
+- **run_mode** — **`compile-only`** (default): `compileJava` / `compileTestJava` only — **no eAPI**, works on GitHub-hosted runners. **`agreement-e2e`**: runs `CreateAgreementE2ETest` with secrets; fails on `ubuntu-latest` with **`UnknownHostException`** if your eAPI hostname is not reachable from the public internet (internal DNS).
+- **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`). Used when **run_mode** is `agreement-e2e`.
 - **club_number** — e.g. `06060`.
 - **payment_plan** — e.g. `INSTALLMENT`, `CASH`.
 - **require_club_catalog** — boolean; if `true`, `club_number` must appear in `e2e/clubs.json`.
@@ -223,7 +224,7 @@ Locally, the same JSON is written under `build/e2e-agreement-results/` after `./
 
 **Troubleshooting — `IllegalStateException` when creating `EApiAgreementClient`:** the test JVM could not read `EAPI_APP_ID` / `EAPI_APP_KEY` / `EAPI_AUTHORIZATION`. Confirm the three **repository Action secrets** exist (exact names) and re-run. The Gradle build now copies these variables into the forked test process explicitly so GitHub Actions picks them up reliably.
 
-**Troubleshooting — `java.net.UnknownHostException` on GitHub Actions:** `ubuntu-latest` is on the **public internet**. Internal eAPI hostnames often **do not resolve** there. Use **Gradle build** for compile-only CI; run agreement E2E **locally** / **internal CI**, or ask your org for [self-hosted runners](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners) / public DNS to eAPI.
+**Troubleshooting — `java.net.UnknownHostException` on GitHub Actions:** the test is calling **`https://eapi.dev.abcfitness.net`** (for `qa-eapi-dev`). **`ubuntu-latest`** cannot resolve many internal `*.abcfitness.net` names. Either use workflow **run_mode → `compile-only`**, run **agreement-e2e** **locally** / on **internal CI** / **self-hosted** runners, or ask IT for a publicly resolvable eAPI host.
 
 **Repository secrets** (Settings → Secrets and variables → Actions):
 

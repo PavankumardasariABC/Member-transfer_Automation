@@ -1,13 +1,21 @@
-# Manual agreement E2E — same shape as a typical internal "Billing API" style workflow:
-# checkout → JDK → Gradle test with secrets in env → optional artifact.
+# Manual workflow: compile-only (default, works on GitHub-hosted) or full agreement E2E
+# (needs eAPI reachable from the runner — internal hostnames often fail on ubuntu-latest).
 #
-# Secrets (repository → Settings → Actions): EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
+# Secrets (only for agreement-e2e): EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
 
 name: eAPI Create Agreement E2E
 
 on:
   workflow_dispatch:
     inputs:
+      run_mode:
+        description: 'compile-only = no eAPI (green on GitHub-hosted). agreement-e2e = real CreateAgreement test (UnknownHostException if eAPI is internal-only).'
+        type: choice
+        required: true
+        default: compile-only
+        options:
+          - compile-only
+          - agreement-e2e
       environment_profile:
         description: 'Target stack (eapiBaseUrl from src/main/resources/e2e/environments.json)'
         type: choice
@@ -64,7 +72,14 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Run tests
+      - name: Compile (no eAPI)
+        if: inputs.run_mode == 'compile-only'
+        run: |
+          chmod +x ./gradlew
+          ./gradlew compileJava compileTestJava --no-daemon
+
+      - name: Run agreement E2E
+        if: inputs.run_mode == 'agreement-e2e'
         env:
           EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
           EAPI_APP_KEY: ${{ secrets.EAPI_APP_KEY }}
@@ -87,11 +102,11 @@ jobs:
           fi
 
       - name: Results summary
-        if: always()
+        if: always() && inputs.run_mode == 'agreement-e2e'
         run: python3 .github/scripts/summarize_agreement_results.py build/e2e-agreement-results
 
       - name: Upload agreement results
-        if: always()
+        if: always() && inputs.run_mode == 'agreement-e2e'
         uses: actions/upload-artifact@v4
         with:
           name: agreement-results
