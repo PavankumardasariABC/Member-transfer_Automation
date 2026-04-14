@@ -115,6 +115,10 @@ jobs:
       - name: Verify eAPI Action secrets
         env:
           SECRETS_HELP_URL: https://github.com/${{ github.repository }}/settings/secrets/actions
+          # Same bindings as the Gradle step — the shell only sees secrets if they are passed here.
+          EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
+          EAPI_APP_KEY: ${{ secrets.EAPI_APP_KEY }}
+          EAPI_AUTHORIZATION: ${{ secrets.EAPI_AUTHORIZATION }}
         run: |
           missing=0
           echo "::notice::eAPI credentials must be stored as Actions secrets (values are never in git). Configure: ${SECRETS_HELP_URL}"
