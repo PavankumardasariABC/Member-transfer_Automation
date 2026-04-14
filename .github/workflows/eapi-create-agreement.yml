@@ -1,10 +1,11 @@
-# Manual agreement E2E: pick stack (eAPI URL profile), club, and plan at run time.
+# Manual agreement E2E: pick stack, club, plan, and how many agreements to create.
+# When agreement_count > 1, spins up min(agreement_count, max_parallel) matrix jobs
+# (pods); each job creates a disjoint stripe so wall clock stays close to one agreement
+# when max_parallel >= agreement_count.
 #
-# Secrets (repository or GitHub Environment — see README "GitHub Actions"):
-#   EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
+# Secrets: EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
 #
-# Optional: scope secrets to a GitHub Environment named e.g. "qa", then add under the job:
-#   environment: qa
+# Optional: add `environment: qa` under create-agreement for GitHub Environment secrets.
 
 name: eAPI Create Agreement E2E
 
@@ -30,6 +31,16 @@ on:
         type: string
         required: true
         default: INSTALLMENT
+      agreement_count:
+        description: 'Total agreements to create across all runners (1–100)'
+        type: string
+        required: true
+        default: '1'
+      max_parallel:
+        description: 'Max concurrent matrix jobs (pods); set ≥ agreement_count for full parallelism'
+        type: string
+        required: true
+        default: '20'
       require_club_catalog:
         description: 'If true, club_number must exist in e2e/clubs.json'
         type: boolean
@@ -37,8 +48,46 @@ on:
         default: false
 
 jobs:
-  create-agreement:
+  shard-matrix:
     runs-on: ubuntu-latest
+    outputs:
+      indices: ${{ steps.calc.outputs.indices }}
+      total: ${{ steps.calc.outputs.total }}
+      shards: ${{ steps.calc.outputs.shards }}
+    steps:
+      - name: Compute shard indices
+        id: calc
+        env:
+          AGREEMENT_COUNT: ${{ inputs.agreement_count }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+        run: |
+          python3 << 'PY'
+          import json
+          import os
+
+          total = int(os.environ["AGREEMENT_COUNT"].strip())
+          max_parallel = int(os.environ["MAX_PARALLEL"].strip())
+          if total < 1 or total > 100:
+              raise SystemExit("agreement_count must be between 1 and 100")
+          if max_parallel < 1 or max_parallel > 100:
+              raise SystemExit("max_parallel must be between 1 and 100")
+          shards = min(total, max_parallel)
+          indices = list(range(shards))
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a", encoding="utf-8") as f:
+              f.write("indices=" + json.dumps(indices) + "\n")
+              f.write(f"total={total}\n")
+              f.write(f"shards={shards}\n")
+          print("total=", total, "shards=", shards, "indices=", indices)
+          PY
+
+  create-agreement:
+    needs: shard-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard_index: ${{ fromJson(needs.shard-matrix.outputs.indices) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,7 +99,7 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Run agreement E2E
+      - name: Run agreement E2E (shard ${{ matrix.shard_index }})
         env:
           EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
           EAPI_APP_KEY: ${{ secrets.EAPI_APP_KEY }}
@@ -59,6 +108,9 @@ jobs:
           E2E_CLUB_NUMBER: ${{ inputs.club_number }}
           E2E_PAYMENT_PLAN: ${{ inputs.payment_plan }}
           E2E_REQUIRE_CLUB_CATALOG: ${{ inputs.require_club_catalog }}
+          E2E_TOTAL_AGREEMENTS: ${{ needs.shard-matrix.outputs.total }}
+          E2E_SHARD_COUNT: ${{ needs.shard-matrix.outputs.shards }}
+          E2E_SHARD_INDEX: ${{ matrix.shard_index }}
         run: |
           chmod +x gradlew
           ./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest --no-daemon

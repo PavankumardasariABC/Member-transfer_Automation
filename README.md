@@ -64,6 +64,9 @@ If the workflow input **Require club catalog** is `true`, or you set `E2E_REQUIR
 | `E2E_PAYMENT_PLAN` | Plan name from **Get All Plans** (default `INSTALLMENT`) |
 | `E2E_CLUBS_JSON_PATH` | Optional absolute path to alternate `clubs.json` |
 | `E2E_REQUIRE_CLUB_CATALOG` | `true` to require club in `clubs.json` |
+| `E2E_TOTAL_AGREEMENTS` | Total agreements to create on this run (default `1`, max `100`) |
+| `E2E_SHARD_COUNT` | How many parallel shards (matrix size); default `1` (single process creates all) |
+| `E2E_SHARD_INDEX` | Zero-based shard id in `[0, E2E_SHARD_COUNT)`; default `0` |
 
 ## Gradle properties (optional)
 
@@ -109,6 +112,10 @@ Workflow: [`.github/workflows/eapi-create-agreement.yml`](.github/workflows/eapi
 - **club_number** — e.g. `06060`.
 - **payment_plan** — e.g. `INSTALLMENT`, `CASH`.
 - **require_club_catalog** — boolean; if `true`, `club_number` must appear in `e2e/clubs.json`.
+- **agreement_count** — total agreements to create (1–100).
+- **max_parallel** — maximum concurrent GitHub runners (1–100). The workflow uses `shards = min(agreement_count, max_parallel)` matrix jobs. Set **`max_parallel ≥ agreement_count`** (e.g. both `20`) so each agreement runs on its own pod in parallel and wall time stays close to **one** agreement creation.
+
+**How sharding works:** shard `i` creates agreement indices `i, i + shards, i + 2*shards, …` until `agreement_count` is covered. Example: `agreement_count=20`, `max_parallel=20` → 20 jobs, each creates **one** agreement. Example: `agreement_count=50`, `max_parallel=20` → 20 jobs; each job creates two or three agreements **sequentially** on that runner (longer wall time).
 
 **Repository secrets** (Settings → Secrets and variables → Actions):
 
@@ -123,6 +130,7 @@ Workflow: [`.github/workflows/eapi-create-agreement.yml`](.github/workflows/eapi
 ```yaml
 jobs:
   create-agreement:
+    needs: shard-matrix
     runs-on: ubuntu-latest
     environment: qa   # name of your GitHub Environment
 ```
@@ -131,12 +139,17 @@ Then remove duplicate secrets from the repository level or keep repository secre
 
 ## What the agreement test does
 
-1. Prints the resolved **environment profile** (if any) and **club catalog** entry (if present).
-2. Calls **Get All Plans** for the club and resolves `paymentPlanId` by plan name.
-3. Calls **Get Payment Plan Info** for that plan and reads `planValidationHash`.
-4. Builds **Create Agreement** JSON (synthetic contact + draft Visa, Luhn-valid PAN).
-5. Posts **Create Agreement**, asserts status message `success`.
-6. Calls **Get Member Info** and prints `memberId`, `agreementNumber`, `barcode`, and display name.
+1. Resolves **shard** settings (`E2E_TOTAL_AGREEMENTS`, `E2E_SHARD_COUNT`, `E2E_SHARD_INDEX`) and prints the resolved **environment profile** and **club catalog** entry.
+2. For each agreement index assigned to this shard: calls **Get All Plans** / **Get Payment Plan Info**, builds **Create Agreement** JSON (synthetic contact + draft Visa, Luhn-valid PAN), posts create, asserts `success`, **Get Member Info**, and prints `slot`, `memberId`, `agreementNumber`, `barcode`, and name.
+3. With defaults (`total=1`, one shard), behavior matches a single-agreement run.
+
+### Local multi-agreement (single machine, sequential)
+
+```bash
+export E2E_TOTAL_AGREEMENTS=5
+# defaults: one shard → this JVM creates all 5 in sequence
+./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+```
 
 ## Member transfer (scaffold)
 
@@ -151,7 +164,7 @@ src/main/resources/e2e/
   clubs.json          # Club + org + verification links
 
 src/main/java/com/membertransfer/e2e/
-  config/             # EApiEnvironment, E2eCatalog (JSON loaders)
+  config/             # EApiEnvironment, E2eCatalog, E2eShardConfig
   eapi/               # REST clients
   http/               # RestAssured base configuration
   model/              # Request/response DTOs

@@ -47,6 +47,18 @@ tasks.named('test', Test) {
         systemProperty 'e2e.clubsJsonPath', clubsPath
     }
     systemProperty 'e2e.requireClubInCatalog', (System.getProperty('e2e.requireClubInCatalog') ?: findProperty('e2e.requireClubInCatalog') ?: 'false') as String
+    def totalAgreements = (System.getProperty('e2e.totalAgreements') ?: findProperty('e2e.totalAgreements'))?.toString()?.trim()
+    if (totalAgreements) {
+        systemProperty 'e2e.totalAgreements', totalAgreements
+    }
+    def shardIndex = (System.getProperty('e2e.shardIndex') ?: findProperty('e2e.shardIndex'))?.toString()?.trim()
+    if (shardIndex != null && shardIndex != '') {
+        systemProperty 'e2e.shardIndex', shardIndex
+    }
+    def shardCount = (System.getProperty('e2e.shardCount') ?: findProperty('e2e.shardCount'))?.toString()?.trim()
+    if (shardCount) {
+        systemProperty 'e2e.shardCount', shardCount
+    }
     testLogging {
         events 'passed', 'skipped', 'failed'
         showStandardStreams = true

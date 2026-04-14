@@ -10,3 +10,8 @@ e2e.paymentPlanName=INSTALLMENT
 # e2e.clubsJsonPath=
 # Optional: fail if club is not listed in clubs.json
 # e2e.requireClubInCatalog=false
+
+# Optional: multi-agreement / sharding (GitHub Actions matrix sets these automatically)
+# e2e.totalAgreements=20
+# e2e.shardCount=20
+# e2e.shardIndex=0
