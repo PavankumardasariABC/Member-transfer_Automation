@@ -4,7 +4,9 @@
 # Either set e2e.eapi.baseUrl OR use a named profile from src/main/resources/e2e/environments.json
 e2e.envProfile=qa-eapi-dev
 e2e.eapi.baseUrl=
-e2e.clubNumber=06060
+# Optional: only set if you want Gradle to override E2E_CLUB_NUMBER from the shell/CI.
+# Leave unset so GitHub Actions can drive the club via the workflow input (E2E_CLUB_NUMBER).
+# e2e.clubNumber=06060
 e2e.paymentPlanName=INSTALLMENT
 # Optional: absolute path to a custom clubs.json (same schema as resources/e2e/clubs.json)
 # e2e.clubsJsonPath=

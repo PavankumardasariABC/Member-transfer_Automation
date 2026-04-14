@@ -7,8 +7,20 @@
 #
 # Results: each shard uploads JSON under agreement-results-*; the agreement-summary job
 # posts a combined table to the workflow run summary (Actions UI → this run → Summary).
+#
+# One-time setup: Repository → Settings → Secrets and variables → Actions → add
+#   EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
+# Then: Actions → this workflow → Run workflow.
 
 name: eAPI Create Agreement E2E
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: eapi-create-agreement-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:

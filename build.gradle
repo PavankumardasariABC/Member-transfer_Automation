@@ -53,13 +53,23 @@ tasks.named('test', Test) {
     if (envProfile) {
         systemProperty 'e2e.envProfile', envProfile
     }
-    systemProperty 'e2e.clubNumber', (System.getProperty('e2e.clubNumber') ?: findProperty('e2e.clubNumber') ?: '06060') as String
-    systemProperty 'e2e.paymentPlanName', (System.getProperty('e2e.paymentPlanName') ?: findProperty('e2e.paymentPlanName') ?: 'INSTALLMENT') as String
+    // Do not inject default club/plan as system properties — that would override E2E_CLUB_NUMBER / E2E_PAYMENT_PLAN from GitHub env.
+    def clubNum = (System.getProperty('e2e.clubNumber') ?: findProperty('e2e.clubNumber'))?.toString()?.trim()
+    if (clubNum) {
+        systemProperty 'e2e.clubNumber', clubNum
+    }
+    def planName = (System.getProperty('e2e.paymentPlanName') ?: findProperty('e2e.paymentPlanName'))?.toString()?.trim()
+    if (planName) {
+        systemProperty 'e2e.paymentPlanName', planName
+    }
     def clubsPath = (System.getProperty('e2e.clubsJsonPath') ?: findProperty('e2e.clubsJsonPath'))?.toString()?.trim()
     if (clubsPath) {
         systemProperty 'e2e.clubsJsonPath', clubsPath
     }
-    systemProperty 'e2e.requireClubInCatalog', (System.getProperty('e2e.requireClubInCatalog') ?: findProperty('e2e.requireClubInCatalog') ?: 'false') as String
+    def requireCatalog = (System.getProperty('e2e.requireClubInCatalog') ?: findProperty('e2e.requireClubInCatalog'))?.toString()?.trim()
+    if (requireCatalog != null && !requireCatalog.isEmpty()) {
+        systemProperty 'e2e.requireClubInCatalog', requireCatalog
+    }
     def totalAgreements = (System.getProperty('e2e.totalAgreements') ?: findProperty('e2e.totalAgreements'))?.toString()?.trim()
     if (totalAgreements) {
         systemProperty 'e2e.totalAgreements', totalAgreements

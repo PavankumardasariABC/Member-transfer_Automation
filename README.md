@@ -70,7 +70,7 @@ If the workflow input **Require club catalog** is `true`, or you set `E2E_REQUIR
 
 ## Gradle properties (optional)
 
-Copy [`gradle.properties.example`](gradle.properties.example) to `gradle.properties` (gitignored). You can set `e2e.envProfile`, `e2e.clubNumber`, `e2e.paymentPlanName`, and optionally `e2e.eapi.baseUrl` to override the profile URL.
+Copy [`gradle.properties.example`](gradle.properties.example) to `gradle.properties` (gitignored). You can set `e2e.envProfile` and optionally `e2e.eapi.baseUrl` to override the profile URL. Prefer **environment variables** (`E2E_CLUB_NUMBER`, `E2E_PAYMENT_PLAN`, …) for club/plan in CI — setting `e2e.clubNumber` / `e2e.paymentPlanName` in `gradle.properties` would override those env vars in the test JVM.
 
 Credentials should still come from **environment variables** or CI secrets.
 
