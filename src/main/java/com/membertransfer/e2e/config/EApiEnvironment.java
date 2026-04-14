@@ -91,13 +91,25 @@ public final class EApiEnvironment {
     }
 
     public static Map<String, String> authHeaders() {
-        String appId = firstNonBlank(System.getenv(ENV_APP_ID));
-        String appKey = firstNonBlank(System.getenv(ENV_APP_KEY));
-        String authorization = firstNonBlank(System.getenv(ENV_AUTHORIZATION));
+        // OS env (GitHub Actions / CI) first; optional -D overrides for local runs.
+        String appId = firstNonBlank(System.getenv(ENV_APP_ID), System.getProperty(ENV_APP_ID));
+        String appKey = firstNonBlank(System.getenv(ENV_APP_KEY), System.getProperty(ENV_APP_KEY));
+        String authorization = firstNonBlank(System.getenv(ENV_AUTHORIZATION), System.getProperty(ENV_AUTHORIZATION));
         if (appId == null || appKey == null || authorization == null) {
+            String miss = "";
+            if (appId == null) {
+                miss += " " + ENV_APP_ID + " is blank/missing;";
+            }
+            if (appKey == null) {
+                miss += " " + ENV_APP_KEY + " is blank/missing;";
+            }
+            if (authorization == null) {
+                miss += " " + ENV_AUTHORIZATION + " is blank/missing;";
+            }
             throw new IllegalStateException(
-                    "Set " + ENV_APP_ID + ", " + ENV_APP_KEY + ", and " + ENV_AUTHORIZATION
-                            + " (see README). Do not commit credentials.");
+                    "eAPI credentials are required." + miss
+                            + " Add repository secrets " + ENV_APP_ID + ", " + ENV_APP_KEY + ", " + ENV_AUTHORIZATION
+                            + " (GitHub → Settings → Secrets and variables → Actions) and ensure this workflow passes them in `env:`.");
         }
         Map<String, String> m = new HashMap<>();
         m.put("app_id", appId);

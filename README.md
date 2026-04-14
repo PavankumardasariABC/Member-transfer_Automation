@@ -126,6 +126,8 @@ Workflow: [`.github/workflows/eapi-create-agreement.yml`](.github/workflows/eapi
 
 Locally, the same JSON is written under `build/e2e-agreement-results/` after `./gradlew test`.
 
+**Troubleshooting — `IllegalStateException` when creating `EApiAgreementClient`:** the test JVM could not read `EAPI_APP_ID` / `EAPI_APP_KEY` / `EAPI_AUTHORIZATION`. Confirm the three **repository Action secrets** exist (exact names) and re-run. The Gradle build now copies these variables into the forked test process explicitly so GitHub Actions picks them up reliably.
+
 **Repository secrets** (Settings → Secrets and variables → Actions):
 
 | Secret | Purpose |

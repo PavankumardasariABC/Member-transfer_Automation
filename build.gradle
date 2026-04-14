@@ -31,6 +31,19 @@ dependencies {
 
 tasks.named('test', Test) {
     useTestNG()
+    // Forked TestNG workers do not always inherit the runner's OS environment; copy known CI vars explicitly.
+    [
+            'EAPI_APP_ID', 'EAPI_APP_KEY', 'EAPI_AUTHORIZATION', 'EAPI_BASE_URL',
+            'E2E_ENV_PROFILE', 'E2E_CLUB_NUMBER', 'E2E_PAYMENT_PLAN',
+            'E2E_TOTAL_AGREEMENTS', 'E2E_SHARD_COUNT', 'E2E_SHARD_INDEX',
+            'E2E_REQUIRE_CLUB_CATALOG', 'E2E_CLUBS_JSON_PATH', 'E2E_RESULTS_DIR',
+            'GITHUB_RUN_ID', 'GITHUB_REPOSITORY', 'GITHUB_SERVER_URL', 'GITHUB_WORKFLOW'
+    ].each { String key ->
+        String v = System.getenv(key)
+        if (v != null && !v.trim().isEmpty()) {
+            environment key, v.trim()
+        }
+    }
     // Only forward non-blank optional properties so the test JVM can fall back to env vars / profiles.
     def eapiBase = (System.getProperty('e2e.eapi.baseUrl') ?: findProperty('e2e.eapi.baseUrl'))?.toString()?.trim()
     if (eapiBase) {
