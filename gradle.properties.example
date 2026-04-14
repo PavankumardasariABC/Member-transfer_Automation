@@ -1,6 +1,12 @@
 # Copy to gradle.properties (gitignored) or pass -P flags / environment variables.
 # See README for EAPI_* environment variable names.
 
-e2e.eapi.baseUrl=https://eapi.dev.abcfitness.net
+# Either set e2e.eapi.baseUrl OR use a named profile from src/main/resources/e2e/environments.json
+e2e.envProfile=qa-eapi-dev
+e2e.eapi.baseUrl=
 e2e.clubNumber=06060
 e2e.paymentPlanName=INSTALLMENT
+# Optional: absolute path to a custom clubs.json (same schema as resources/e2e/clubs.json)
+# e2e.clubsJsonPath=
+# Optional: fail if club is not listed in clubs.json
+# e2e.requireClubInCatalog=false

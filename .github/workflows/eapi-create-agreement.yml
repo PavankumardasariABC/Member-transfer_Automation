@@ -1,0 +1,64 @@
+# Manual agreement E2E: pick stack (eAPI URL profile), club, and plan at run time.
+#
+# Secrets (repository or GitHub Environment — see README "GitHub Actions"):
+#   EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
+#
+# Optional: scope secrets to a GitHub Environment named e.g. "qa", then add under the job:
+#   environment: qa
+
+name: eAPI Create Agreement E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_profile:
+        description: 'Stack profile → eapiBaseUrl in src/main/resources/e2e/environments.json'
+        type: choice
+        required: true
+        default: qa-eapi-dev
+        options:
+          - qa-eapi-dev
+          - staging
+          - beta
+      club_number:
+        description: 'Club number (5-digit, e.g. 06060)'
+        type: string
+        required: true
+        default: '06060'
+      payment_plan:
+        description: 'Plan name from eAPI Get All Plans (e.g. INSTALLMENT, CASH)'
+        type: string
+        required: true
+        default: INSTALLMENT
+      require_club_catalog:
+        description: 'If true, club_number must exist in e2e/clubs.json'
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  create-agreement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Run agreement E2E
+        env:
+          EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}
+          EAPI_APP_KEY: ${{ secrets.EAPI_APP_KEY }}
+          EAPI_AUTHORIZATION: ${{ secrets.EAPI_AUTHORIZATION }}
+          E2E_ENV_PROFILE: ${{ inputs.environment_profile }}
+          E2E_CLUB_NUMBER: ${{ inputs.club_number }}
+          E2E_PAYMENT_PLAN: ${{ inputs.payment_plan }}
+          E2E_REQUIRE_CLUB_CATALOG: ${{ inputs.require_club_catalog }}
+        run: |
+          chmod +x gradlew
+          ./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest --no-daemon

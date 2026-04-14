@@ -31,9 +31,22 @@ dependencies {
 
 tasks.named('test', Test) {
     useTestNG()
-    systemProperty 'e2e.eapi.baseUrl', (System.getProperty('e2e.eapi.baseUrl') ?: findProperty('e2e.eapi.baseUrl') ?: '') as String
+    // Only forward non-blank optional properties so the test JVM can fall back to env vars / profiles.
+    def eapiBase = (System.getProperty('e2e.eapi.baseUrl') ?: findProperty('e2e.eapi.baseUrl'))?.toString()?.trim()
+    if (eapiBase) {
+        systemProperty 'e2e.eapi.baseUrl', eapiBase
+    }
+    def envProfile = (System.getProperty('e2e.envProfile') ?: findProperty('e2e.envProfile'))?.toString()?.trim()
+    if (envProfile) {
+        systemProperty 'e2e.envProfile', envProfile
+    }
     systemProperty 'e2e.clubNumber', (System.getProperty('e2e.clubNumber') ?: findProperty('e2e.clubNumber') ?: '06060') as String
     systemProperty 'e2e.paymentPlanName', (System.getProperty('e2e.paymentPlanName') ?: findProperty('e2e.paymentPlanName') ?: 'INSTALLMENT') as String
+    def clubsPath = (System.getProperty('e2e.clubsJsonPath') ?: findProperty('e2e.clubsJsonPath'))?.toString()?.trim()
+    if (clubsPath) {
+        systemProperty 'e2e.clubsJsonPath', clubsPath
+    }
+    systemProperty 'e2e.requireClubInCatalog', (System.getProperty('e2e.requireClubInCatalog') ?: findProperty('e2e.requireClubInCatalog') ?: 'false') as String
     testLogging {
         events 'passed', 'skipped', 'failed'
         showStandardStreams = true

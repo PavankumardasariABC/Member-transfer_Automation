@@ -1,0 +1,23 @@
+{
+  "description": "Named stacks for agreement E2E. Pick one at runtime via E2E_ENV_PROFILE / workflow input. Override eAPI URL anytime with EAPI_BASE_URL or -De2e.eapi.baseUrl.",
+  "profiles": {
+    "qa-eapi-dev": {
+      "eapiBaseUrl": "https://eapi.dev.abcfitness.net",
+      "rcmBillingUrl": "https://qa.30preprod.com",
+      "commerceUiUrl": "https://qa.30preprod.com",
+      "description": "Typical QA Commerce/RCM host with dev-region eAPI (matches many internal automation suites)."
+    },
+    "staging": {
+      "eapiBaseUrl": "https://eapi.staging.abcfitness.net",
+      "rcmBillingUrl": "https://staging.abc30release.com",
+      "commerceUiUrl": "https://staging.abc30release.com",
+      "description": "Staging eAPI + RCM stack."
+    },
+    "beta": {
+      "eapiBaseUrl": "https://eapi.beta.abcfitness.net",
+      "rcmBillingUrl": "https://beta.abcrcm.com",
+      "commerceUiUrl": "https://beta.abcrcm.com",
+      "description": "Beta eAPI + RCM stack."
+    }
+  }
+}

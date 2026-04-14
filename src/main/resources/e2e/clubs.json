@@ -1,0 +1,70 @@
+{
+  "description": "Automation-friendly clubs: org/location IDs and helpful links for manual verification. Add rows as your tenant grows; keep clubNumber as the 5-digit string used by eAPI.",
+  "clubs": [
+    {
+      "clubNumber": "06060",
+      "organizationName": "DT006060",
+      "organizationId": "3e2f9b75-c44e-4448-8657-161c6b18753a",
+      "locationName": "Club 06060",
+      "locationId": "11ef3a15-adff-2bec-b76c-a503837c9ec0",
+      "tags": ["automation", "installment-smoke"],
+      "links": {
+        "commerceMembers": "https://qa.30preprod.com/app/members/members",
+        "commerceHome": "https://qa.30preprod.com",
+        "verificationNotes": "Search members by agreement number or barcode from test output; org label DT006060 in Commerce."
+      }
+    },
+    {
+      "clubNumber": "06066",
+      "organizationName": "DT006060",
+      "organizationId": "3e2f9b75-c44e-4448-8657-161c6b18753a",
+      "locationName": "Club 06066",
+      "locationId": "11efbc65-6edc-88e6-b70f-cd34f2709cc3",
+      "tags": ["automation"],
+      "links": {
+        "commerceMembers": "https://qa.30preprod.com/app/members/members",
+        "commerceHome": "https://qa.30preprod.com",
+        "verificationNotes": "Same org as 06060; different location."
+      }
+    },
+    {
+      "clubNumber": "12070",
+      "organizationName": "DT015090",
+      "organizationId": "be778bb8-5279-4dc4-ac0e-d37147f853bb",
+      "locationName": "Club 12070",
+      "locationId": "11f0fcf9-98ff-c385-935c-f5f8416df6a4",
+      "tags": ["automation", "commerce2commerce"],
+      "links": {
+        "commerceMembers": "https://qa.30preprod.com/app/members/members",
+        "commerceHome": "https://qa.30preprod.com",
+        "verificationNotes": "DT015090 org; useful for transfer-style scenarios when paired with other DT015090 clubs."
+      }
+    },
+    {
+      "clubNumber": "15090",
+      "organizationName": "DT015090",
+      "organizationId": "be778bb8-5279-4dc4-ac0e-d37147f853bb",
+      "locationName": "Club 15090",
+      "locationId": "11eda3c9-bb1c-bcab-ac87-5ff74c7ef1da",
+      "tags": ["automation", "commerce2commerce"],
+      "links": {
+        "commerceMembers": "https://qa.30preprod.com/app/members/members",
+        "commerceHome": "https://qa.30preprod.com",
+        "verificationNotes": "Same org as 12070; watch for duplicate agreement-number collisions on CASH-heavy templates."
+      }
+    },
+    {
+      "clubNumber": "12067",
+      "organizationName": "DT015090",
+      "organizationId": "be778bb8-5279-4dc4-ac0e-d37147f853bb",
+      "locationName": "Club 12067",
+      "locationId": "11edb444-117c-7c13-8cd0-cbc39e458fd7",
+      "tags": ["automation", "commerce2commerce"],
+      "links": {
+        "commerceMembers": "https://qa.30preprod.com/app/members/members",
+        "commerceHome": "https://qa.30preprod.com",
+        "verificationNotes": "DT015090 transfer automation club."
+      }
+    }
+  ]
+}
