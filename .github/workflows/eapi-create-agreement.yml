@@ -79,10 +79,11 @@ jobs:
           OPTIONAL_TEST_CLASS: ${{ inputs.test_class }}
         run: |
           chmod +x ./gradlew
+          echo "E2E profile=${E2E_ENV_PROFILE} club=${E2E_CLUB_NUMBER} agreements=${E2E_TOTAL_AGREEMENTS}"
           if [ -n "${OPTIONAL_TEST_CLASS}" ]; then
-            ./gradlew test --no-daemon --tests "${OPTIONAL_TEST_CLASS}"
+            ./gradlew test --no-daemon --stacktrace --tests "${OPTIONAL_TEST_CLASS}"
           else
-            ./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+            ./gradlew test --no-daemon --stacktrace --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
           fi
 
       - name: Results summary
