@@ -106,6 +106,25 @@ export E2E_PAYMENT_PLAN='INSTALLMENT'
 
 Workflow: [`.github/workflows/eapi-create-agreement.yml`](.github/workflows/eapi-create-agreement.yml) (**workflow_dispatch**).
 
+### One-time setup: repository secrets (required)
+
+The workflow **cannot** read eAPI credentials from this repository; they are **not** in git (and must never be). You must create **three** [Actions secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) on **this same GitHub repository** that runs the workflow (not only on your laptop).
+
+1. Open **your repo** on GitHub → **Settings** → **Secrets and variables** → **Actions**.
+2. Click **New repository secret** three times and add exactly these names (case-sensitive):
+
+| Name | Value to paste |
+|------|----------------|
+| `EAPI_APP_ID` | Same value you use as the eAPI **`app_id`** header (often from your internal automation / app registration). |
+| `EAPI_APP_KEY` | Same value as the eAPI **`app_key`** header. |
+| `EAPI_AUTHORIZATION` | Full **`Authorization`** header value (e.g. `Basic …` or `Bearer …`), **not** the word “Bearer” alone. |
+
+3. Save each secret, then re-run **Actions** → **eAPI Create Agreement E2E** → **Run workflow**.
+
+**If the job fails with “Secret EAPI_APP_ID is empty or unset”:** GitHub is not supplying those secrets to the job. Typical causes: secrets were added on a **different** fork or organization repo; the workflow ran from a **pull request from a fork** (secrets are not passed to fork PRs); or the names have a typo (`EAPI_APP_ID` vs `EAPI_APPID`). Fix by adding the three secrets on the repository shown in the workflow run URL.
+
+**Where do the values come from?** Use the **same** eAPI application credentials your team already uses for QA/dev eAPI (for example the values you export locally as `EAPI_APP_ID`, `EAPI_APP_KEY`, `EAPI_AUTHORIZATION` in the commands above). Copy them from your password manager or internal docs — **do not** paste them into a commit or issue.
+
 **Inputs at run time:**
 
 - **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`).
