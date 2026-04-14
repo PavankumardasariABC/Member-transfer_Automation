@@ -44,21 +44,40 @@ tasks.named('test', Test) {
             environment key, v.trim()
         }
     }
+    // TestNG / worker JVMs reliably receive -D; mirror secrets from the Gradle process env (CI step).
+    ['EAPI_APP_ID', 'EAPI_APP_KEY', 'EAPI_AUTHORIZATION'].each { String key ->
+        String v = System.getenv(key)?.trim()
+        if (v) {
+            systemProperty key, v
+        }
+    }
     // Only forward non-blank optional properties so the test JVM can fall back to env vars / profiles.
     def eapiBase = (System.getProperty('e2e.eapi.baseUrl') ?: findProperty('e2e.eapi.baseUrl'))?.toString()?.trim()
+    if (!eapiBase) {
+        eapiBase = System.getenv('EAPI_BASE_URL')?.trim()
+    }
     if (eapiBase) {
         systemProperty 'e2e.eapi.baseUrl', eapiBase
     }
     def envProfile = (System.getProperty('e2e.envProfile') ?: findProperty('e2e.envProfile'))?.toString()?.trim()
+    if (!envProfile) {
+        envProfile = System.getenv('E2E_ENV_PROFILE')?.trim()
+    }
     if (envProfile) {
         systemProperty 'e2e.envProfile', envProfile
     }
     // Do not inject default club/plan as system properties — that would override E2E_CLUB_NUMBER / E2E_PAYMENT_PLAN from GitHub env.
     def clubNum = (System.getProperty('e2e.clubNumber') ?: findProperty('e2e.clubNumber'))?.toString()?.trim()
+    if (!clubNum) {
+        clubNum = System.getenv('E2E_CLUB_NUMBER')?.trim()
+    }
     if (clubNum) {
         systemProperty 'e2e.clubNumber', clubNum
     }
     def planName = (System.getProperty('e2e.paymentPlanName') ?: findProperty('e2e.paymentPlanName'))?.toString()?.trim()
+    if (!planName) {
+        planName = System.getenv('E2E_PAYMENT_PLAN')?.trim()
+    }
     if (planName) {
         systemProperty 'e2e.paymentPlanName', planName
     }
@@ -67,18 +86,30 @@ tasks.named('test', Test) {
         systemProperty 'e2e.clubsJsonPath', clubsPath
     }
     def requireCatalog = (System.getProperty('e2e.requireClubInCatalog') ?: findProperty('e2e.requireClubInCatalog'))?.toString()?.trim()
+    if (!requireCatalog) {
+        requireCatalog = System.getenv('E2E_REQUIRE_CLUB_CATALOG')?.trim()
+    }
     if (requireCatalog != null && !requireCatalog.isEmpty()) {
         systemProperty 'e2e.requireClubInCatalog', requireCatalog
     }
     def totalAgreements = (System.getProperty('e2e.totalAgreements') ?: findProperty('e2e.totalAgreements'))?.toString()?.trim()
+    if (!totalAgreements) {
+        totalAgreements = System.getenv('E2E_TOTAL_AGREEMENTS')?.trim()
+    }
     if (totalAgreements) {
         systemProperty 'e2e.totalAgreements', totalAgreements
     }
     def shardIndex = (System.getProperty('e2e.shardIndex') ?: findProperty('e2e.shardIndex'))?.toString()?.trim()
+    if (shardIndex == null || shardIndex == '') {
+        shardIndex = System.getenv('E2E_SHARD_INDEX')?.trim()
+    }
     if (shardIndex != null && shardIndex != '') {
         systemProperty 'e2e.shardIndex', shardIndex
     }
     def shardCount = (System.getProperty('e2e.shardCount') ?: findProperty('e2e.shardCount'))?.toString()?.trim()
+    if (!shardCount) {
+        shardCount = System.getenv('E2E_SHARD_COUNT')?.trim()
+    }
     if (shardCount) {
         systemProperty 'e2e.shardCount', shardCount
     }

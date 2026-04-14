@@ -112,6 +112,18 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Verify eAPI Action secrets
+        run: |
+          missing=0
+          for name in EAPI_APP_ID EAPI_APP_KEY EAPI_AUTHORIZATION; do
+            val="${!name}"
+            if [ -z "${val}" ]; then
+              echo "::error::Secret $name is empty or unset. Add it under Repository → Settings → Secrets and variables → Actions (fork PRs do not receive secrets)."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
       - name: Run agreement E2E (shard ${{ matrix.shard_index }})
         env:
           EAPI_APP_ID: ${{ secrets.EAPI_APP_ID }}

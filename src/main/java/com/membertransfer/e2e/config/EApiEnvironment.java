@@ -91,10 +91,10 @@ public final class EApiEnvironment {
     }
 
     public static Map<String, String> authHeaders() {
-        // OS env (GitHub Actions / CI) first; optional -D overrides for local runs.
-        String appId = firstNonBlank(System.getenv(ENV_APP_ID), System.getProperty(ENV_APP_ID));
-        String appKey = firstNonBlank(System.getenv(ENV_APP_KEY), System.getProperty(ENV_APP_KEY));
-        String authorization = firstNonBlank(System.getenv(ENV_AUTHORIZATION), System.getProperty(ENV_AUTHORIZATION));
+        // Prefer JVM system properties (Gradle forwards secrets as -D for reliable TestNG workers), then OS env.
+        String appId = firstNonBlank(System.getProperty(ENV_APP_ID), System.getenv(ENV_APP_ID));
+        String appKey = firstNonBlank(System.getProperty(ENV_APP_KEY), System.getenv(ENV_APP_KEY));
+        String authorization = firstNonBlank(System.getProperty(ENV_AUTHORIZATION), System.getenv(ENV_AUTHORIZATION));
         if (appId == null || appKey == null || authorization == null) {
             String miss = "";
             if (appId == null) {
