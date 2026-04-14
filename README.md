@@ -117,6 +117,15 @@ Workflow: [`.github/workflows/eapi-create-agreement.yml`](.github/workflows/eapi
 
 **How sharding works:** shard `i` creates agreement indices `i, i + shards, i + 2*shards, …` until `agreement_count` is covered. Example: `agreement_count=20`, `max_parallel=20` → 20 jobs, each creates **one** agreement. Example: `agreement_count=50`, `max_parallel=20` → 20 jobs; each job creates two or three agreements **sequentially** on that runner (longer wall time).
 
+### Where to see results (QA run)
+
+1. Open **Actions** → **eAPI Create Agreement E2E** → select your workflow run.
+2. **Summary** (top of the run page): the **Agreement results (combined)** job appends a markdown section with **workflow inputs** (profile = QA stack `qa-eapi-dev`, club, plan, counts) and a **table of every agreement** created (slot, agreement #, member id, barcode, name).
+3. Each **matrix job** (“Shard *”) also writes a collapsible **JSON** block in that job’s own summary with the raw `agreements-shard-N.json`.
+4. **Artifacts:** download `agreement-results-0`, `agreement-results-1`, … — each contains `build/e2e-agreement-results/agreements-shard-N.json` for auditing or re-processing.
+
+Locally, the same JSON is written under `build/e2e-agreement-results/` after `./gradlew test`.
+
 **Repository secrets** (Settings → Secrets and variables → Actions):
 
 | Secret | Purpose |

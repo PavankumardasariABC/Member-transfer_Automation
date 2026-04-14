@@ -5,7 +5,8 @@
 #
 # Secrets: EAPI_APP_ID, EAPI_APP_KEY, EAPI_AUTHORIZATION
 #
-# Optional: add `environment: qa` under create-agreement for GitHub Environment secrets.
+# Results: each shard uploads JSON under agreement-results-*; the agreement-summary job
+# posts a combined table to the workflow run summary (Actions UI → this run → Summary).
 
 name: eAPI Create Agreement E2E
 
@@ -114,3 +115,74 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest --no-daemon
+
+      - name: Shard ${{ matrix.shard_index }} — job summary (JSON)
+        if: always()
+        run: |
+          python3 << 'PY'
+          import json
+          import os
+          import pathlib
+
+          idx = "${{ matrix.shard_index }}"
+          p = pathlib.Path("build/e2e-agreement-results", f"agreements-shard-{idx}.json")
+          sm = os.environ.get("GITHUB_STEP_SUMMARY", "")
+          if not sm:
+              raise SystemExit(0)
+          with open(sm, "a", encoding="utf-8") as out:
+              out.write(f"## Shard {idx} — agreement JSON\n\n")
+              if p.is_file():
+                  with p.open(encoding="utf-8") as f:
+                      data = json.load(f)
+                  body = json.dumps(data, indent=2)
+                  if len(body) > 24000:
+                      body = body[:24000] + "\n… (truncated)"
+                  out.write("<details><summary>agreements-shard-" + idx + ".json</summary>\n\n")
+                  out.write("```json\n" + body + "\n```\n\n")
+                  out.write("</details>\n\n")
+              else:
+                  out.write("_No `build/e2e-agreement-results/agreements-shard-" + idx + ".json` (tests failed before write or no agreements on this shard)._\n\n")
+          PY
+
+      - name: Upload shard results (for combined summary)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agreement-results-${{ matrix.shard_index }}
+          path: build/e2e-agreement-results/
+          if-no-files-found: ignore
+
+  agreement-summary:
+    name: Agreement results (combined)
+    needs: [shard-matrix, create-agreement]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all shard artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+          pattern: agreement-results-*
+          merge-multiple: true
+
+      - name: Write workflow inputs to summary
+        run: |
+          {
+            echo "## QA / stack inputs (this run)"
+            echo ""
+            echo "- **environment_profile:** ${{ inputs.environment_profile }}"
+            echo "- **club_number:** ${{ inputs.club_number }}"
+            echo "- **payment_plan:** ${{ inputs.payment_plan }}"
+            echo "- **agreement_count:** ${{ inputs.agreement_count }}"
+            echo "- **max_parallel:** ${{ inputs.max_parallel }}"
+            echo "- **require_club_catalog:** ${{ inputs.require_club_catalog }}"
+            echo "- **shards computed:** ${{ needs.shard-matrix.outputs.shards }}"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Combined agreements table
+        run: python3 .github/scripts/summarize_agreement_results.py downloaded
