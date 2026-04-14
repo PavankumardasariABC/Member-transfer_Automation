@@ -125,6 +125,35 @@ The workflow **cannot** read eAPI credentials from this repository; they are **n
 
 **Where do the values come from?** Use the **same** eAPI application credentials your team already uses for QA/dev eAPI (for example the values you export locally as `EAPI_APP_ID`, `EAPI_APP_KEY`, `EAPI_AUTHORIZATION` in the commands above). Copy them from your password manager or internal docs — **do not** paste them into a commit or issue.
 
+### Use the exact same values as a working local run
+
+The workflow already injects **`EAPI_APP_ID`**, **`EAPI_APP_KEY`**, and **`EAPI_AUTHORIZATION`** into the job using the **same names** your shell uses. You are not changing values—only **copying** them from where they work locally into **GitHub → Settings → Secrets and variables → Actions** (repository secrets). **Never** commit those strings into this repo.
+
+1. On your machine, find the three strings that make local `./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest` succeed. Typical places:
+   - **Terminal:** `export EAPI_APP_ID=…` (and the other two) in `~/.zshrc`, `~/.bash_profile`, or a script you run before Gradle.
+   - **`gradle.properties`** in the project root (often **gitignored**—that is correct; keep it local only).
+   - **IDE run configuration:** Environment variables on the TestNG / Gradle run.
+2. In GitHub: **Settings → Secrets and variables → Actions → New repository secret** (three times).
+3. For each row below, create a secret whose **name** matches the left column and whose **value** is the **exact same string** you use locally for that name:
+
+| GitHub secret name | Must match your local |
+|--------------------|------------------------|
+| `EAPI_APP_ID` | Same as local `EAPI_APP_ID` |
+| `EAPI_APP_KEY` | Same as local `EAPI_APP_KEY` |
+| `EAPI_AUTHORIZATION` | Same as local `EAPI_AUTHORIZATION` (full header value, including any `Basic ` / `Bearer ` prefix if you use it locally) |
+
+4. Save all three, then run the workflow from **Actions** (not from a fork PR unless your org allows secrets there).
+
+**Sanity check (local, does not print secrets):**
+
+```bash
+for n in EAPI_APP_ID EAPI_APP_KEY EAPI_AUTHORIZATION; do
+  if [ -n "${!n}" ]; then echo "$n=set"; else echo "$n=MISSING"; fi
+done
+```
+
+If all three show `set` locally but GitHub still reports empty secrets, the secrets were almost certainly added on a **different** GitHub repository or account than the one running the workflow—open the run URL and add secrets on **that** repo’s Settings page.
+
 **Inputs at run time:**
 
 - **environment_profile** — choice: `qa-eapi-dev`, `staging`, `beta` (must exist in `environments.json`).
