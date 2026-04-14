@@ -119,6 +119,8 @@ The workflow **cannot** read eAPI credentials from this repository; they are **n
 | `EAPI_APP_KEY` | Same value as the eAPI **`app_key`** header. |
 | `EAPI_AUTHORIZATION` | Full **`Authorization`** header value (e.g. `Basic …` or `Bearer …`), **not** the word “Bearer” alone. |
 
+**Important — GitHub secret *names* are not Java constant names.** If you copied values from `dt2rcm`’s `EApiHelper.java`, you must still name the secrets **`EAPI_APP_ID`**, **`EAPI_APP_KEY`**, and **`EAPI_AUTHORIZATION`**. Names like `APP_ID_WITH_AUTH`, `APP_KEY_WITH_AUTH`, or `BASIC` will **not** be read by this workflow (you will see “empty or unset” for `EAPI_*`).
+
 3. Save each secret, then re-run **Actions** → **eAPI Create Agreement E2E** → **Run workflow**.
 
 **If the job fails with “Secret EAPI_APP_ID is empty or unset”:** GitHub is not supplying those secrets to the job. Typical causes: secrets were added on a **different** fork or organization repo; the workflow ran from a **pull request from a fork** (secrets are not passed to fork PRs); or the names have a typo (`EAPI_APP_ID` vs `EAPI_APPID`). Fix by adding the three secrets on the repository shown in the workflow run URL.
@@ -160,11 +162,13 @@ In **dt2rcm_automation**, `CreateAgreementTest` calls `eApiFactory.createAgreeme
 
 Copy the **string literals** from that file into GitHub secrets (or into your shell `export`s) using this mapping:
 
-| Member-transfer / GitHub secret | dt2rcm `EApiHelper` constant |
-|---------------------------------|------------------------------|
+| GitHub secret **name** (required) | Copy **value** from dt2rcm `EApiHelper` constant |
+|-----------------------------------|--------------------------------------------------|
 | `EAPI_APP_ID` | `APP_ID_WITH_AUTH` |
 | `EAPI_APP_KEY` | `APP_KEY_WITH_AUTH` |
 | `EAPI_AUTHORIZATION` | `BASIC` (entire `Authorization` header value, including the `Basic ` prefix) |
+
+The **left column** is what you type in GitHub’s **Name** field; the **right column** is only where the string comes from in Java.
 
 **Run the dt2rcm agreement test locally** (from the **dt2rcm_automation** repo root; uses QA eAPI URL from `obc/src/test/resources/services.json` and dev club `06060`, aligned with Member-transfer profile **`qa-eapi-dev`**):
 
