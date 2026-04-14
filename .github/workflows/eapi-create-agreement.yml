@@ -112,6 +112,11 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: eAPI host DNS (must resolve on runner)
+        env:
+          E2E_ENV_PROFILE: ${{ inputs.environment_profile }}
+        run: python3 .github/scripts/check_eapi_dns.py
+
       - name: Verify eAPI Action secrets
         env:
           SECRETS_HELP_URL: https://github.com/${{ github.repository }}/settings/secrets/actions
