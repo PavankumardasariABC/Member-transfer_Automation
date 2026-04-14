@@ -1,0 +1,6 @@
+# Copy to gradle.properties (gitignored) or pass -P flags / environment variables.
+# See README for EAPI_* environment variable names.
+
+e2e.eapi.baseUrl=https://eapi.dev.abcfitness.net
+e2e.clubNumber=06060
+e2e.paymentPlanName=INSTALLMENT

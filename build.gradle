@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.membertransfer'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'io.rest-assured:rest-assured:5.4.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.0'
+    implementation 'org.apache.commons:commons-lang3:3.14.0'
+    implementation 'org.slf4j:slf4j-api:2.0.12'
+    testImplementation 'org.testng:testng:7.9.0'
+    testRuntimeOnly 'org.slf4j:slf4j-simple:2.0.12'
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    testCompileOnly 'org.projectlombok:lombok:1.18.32'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.32'
+}
+
+tasks.named('test', Test) {
+    useTestNG()
+    systemProperty 'e2e.eapi.baseUrl', (System.getProperty('e2e.eapi.baseUrl') ?: findProperty('e2e.eapi.baseUrl') ?: '') as String
+    systemProperty 'e2e.clubNumber', (System.getProperty('e2e.clubNumber') ?: findProperty('e2e.clubNumber') ?: '06060') as String
+    systemProperty 'e2e.paymentPlanName', (System.getProperty('e2e.paymentPlanName') ?: findProperty('e2e.paymentPlanName') ?: 'INSTALLMENT') as String
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+}
