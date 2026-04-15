@@ -89,11 +89,24 @@ Copy [`gradle.properties.example`](gradle.properties.example) to `gradle.propert
 
 Credentials should still come from **environment variables** or CI secrets.
 
-## Run agreement E2E (local)
+## How to run (local) — steps and examples
 
-**Using a named profile:**
+Automation is driven by **Gradle** (`./gradlew`); there are no separate shell “product” scripts in-repo. Use the examples below from the **repository root** after `git clone`.
+
+### Step-by-step (first time)
+
+1. **Install JDK 17** and ensure `java -version` reports 17.x.
+2. **Clone** this repo and `cd` into the project root.
+3. **Choose credentials** (one of):
+   - Export **`EAPI_APP_ID`**, **`EAPI_APP_KEY`**, **`EAPI_AUTHORIZATION`** (recommended for CI and public clones), or  
+   - Keep a local **`dt2rcm_automation`** checkout and set **`DT2RCM_AUTOMATION_ROOT`** (or place it as a **sibling** folder `../dt2rcm_automation`) so the suite can read the same values as `:obc` tests from `EApiHelper.java` (developer machines only).
+4. **Choose stack and club** — at minimum set **`E2E_ENV_PROFILE`** (e.g. `qa-eapi-dev`) or **`EAPI_BASE_URL`**; optional **`E2E_CLUB_NUMBER`** (default `06060`), **`E2E_PAYMENT_PLAN`** (default `INSTALLMENT`).
+5. **Run the test class** (examples follow). Use **`--no-daemon`** in CI or when running several Gradles in parallel.
+
+### Example 1 — One agreement (named profile + exported secrets)
 
 ```bash
+cd /path/to/Member-transfer_Automation
 export E2E_ENV_PROFILE='qa-eapi-dev'
 export EAPI_APP_ID='...'
 export EAPI_APP_KEY='...'
@@ -101,12 +114,13 @@ export EAPI_AUTHORIZATION='...'
 export E2E_CLUB_NUMBER='06060'
 export E2E_PAYMENT_PLAN='INSTALLMENT'
 
-./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
 ```
 
-**Using an explicit eAPI URL:**
+### Example 2 — One agreement (explicit eAPI URL)
 
 ```bash
+cd /path/to/Member-transfer_Automation
 export EAPI_BASE_URL='https://eapi.dev.abcfitness.net'
 export EAPI_APP_ID='...'
 export EAPI_APP_KEY='...'
@@ -114,8 +128,64 @@ export EAPI_AUTHORIZATION='...'
 export E2E_CLUB_NUMBER='12070'
 export E2E_PAYMENT_PLAN='INSTALLMENT'
 
-./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
 ```
+
+### Example 3 — One agreement (credentials from local dt2rcm; no `EAPI_*` exports)
+
+Use when `dt2rcm_automation` is on disk and policy allows reading `EApiHelper.java` locally.
+
+```bash
+cd /path/to/Member-transfer_Automation
+export DT2RCM_AUTOMATION_ROOT='/path/to/dt2rcm_automation'
+export E2E_ENV_PROFILE='qa-eapi-dev'
+export E2E_CLUB_NUMBER='06060'
+
+./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+```
+
+### Example 4 — Multiple agreements, one process (sequential)
+
+Creates each agreement in order on this JVM (default `E2E_SHARD_COUNT=1`). Allowed range: **1–100**.
+
+```bash
+export E2E_ENV_PROFILE='qa-eapi-dev'
+# …set EAPI_* or DT2RCM_AUTOMATION_ROOT as above…
+export E2E_CLUB_NUMBER='06060'
+export E2E_TOTAL_AGREEMENTS='10'
+
+./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+```
+
+### Example 5 — Parallel shards (several Gradle processes)
+
+Split **`E2E_TOTAL_AGREEMENTS`** across **`E2E_SHARD_COUNT`** runners. Each runner must use a **different** **`E2E_SHARD_INDEX`** in `0 … E2E_SHARD_COUNT-1`.  
+`build.gradle` writes JUnit/binary results under **per-shard** directories so these processes do not overwrite each other’s `build/test-results`.
+
+```bash
+export E2E_ENV_PROFILE='qa-eapi-dev'
+export E2E_CLUB_NUMBER='06060'
+export E2E_TOTAL_AGREEMENTS='10'
+export E2E_SHARD_COUNT='5'
+# Terminal / job 0:
+export E2E_SHARD_INDEX='0'
+./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
+# Repeat on four other machines or terminals with SHARD_INDEX=1,2,3,4 and the same TOTAL/SHARD_COUNT.
+```
+
+### Example 6 — Compile only (no eAPI; same as default CI compile)
+
+```bash
+./gradlew compileJava compileTestJava --no-daemon
+```
+
+### After a run — where to look
+
+| Output | Location |
+|--------|----------|
+| Console | `CREATED_AGREEMENT …`, `E2E OK …`, shard summary |
+| Agreement JSON (per shard) | `build/e2e-agreement-results/agreements-shard-{index}.json` |
+| JUnit XML (per shard / default) | `build/test-results/junit-xml-shard-{index}/` or `…-single/` |
 
 ## GitHub Actions
 
@@ -259,13 +329,7 @@ Aligned with **dt2rcm_automation** `CreateAgreementTest` (create → success →
 4. Assert member **Active** and queue **Posted**; **GET** `…/wallets/paymentmethods` and assert names, last four, card type, exp, method type **Credit Card**, slots **CardOnFile** + **ClubBilling** (TestNG `SoftAssert`, then `assertAll`).
 5. Append shard JSON + print `E2E OK …` line. With defaults (`total=1`, one shard), one full agreement run.
 
-### Local multi-agreement (single machine, sequential)
-
-```bash
-export E2E_TOTAL_AGREEMENTS=5
-# defaults: one shard → this JVM creates all 5 in sequence
-./gradlew test --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest
-```
+For more run patterns (multi-agreement, parallel shards, compile-only), see the section **How to run (local) — steps and examples** earlier in this README.
 
 ## Member transfer (scaffold)
 

@@ -216,11 +216,48 @@ With **`E2E_TOTAL_AGREEMENTS=50`** and **`E2E_SHARD_COUNT=5`**, each of five run
 
 ---
 
-## 10. Quick links
+## 10. How to run locally (aligned with README)
+
+**Authoritative copy-paste commands** (Examples **1–6**), the full **environment variable** table, **GitHub Actions** inputs, and **troubleshooting** are in [README.md](../README.md) under the heading **“How to run (local) — steps and examples.”** Below is a **wiki summary** so executives and architects see the shape of operations without duplicating every line.
+
+### 10.1 What runs the “scripts”
+
+There are **no standalone shell product scripts** in-repo. Runs are **`./gradlew`** invocations of **`com.membertransfer.e2e.eapi.CreateAgreementE2ETest`** (TestNG), with behavior controlled by **environment variables** (and optional `gradle.properties`).
+
+### 10.2 First-time steps (checklist)
+
+1. **JDK 17** — `java -version` must report 17.x.  
+2. **Clone** the repo; **`cd`** to the repository root.  
+3. **Credentials** — either export **`EAPI_APP_ID`**, **`EAPI_APP_KEY`**, **`EAPI_AUTHORIZATION`**, or set **`DT2RCM_AUTOMATION_ROOT`** to a local **`dt2rcm_automation`** checkout (developer machines only; reads `EApiHelper.java`).  
+4. **Stack / club** — set **`E2E_ENV_PROFILE`** (e.g. `qa-eapi-dev`) or **`EAPI_BASE_URL`**; optional **`E2E_CLUB_NUMBER`**, **`E2E_PAYMENT_PLAN`**.  
+5. **Execute** — `./gradlew test --no-daemon --tests com.membertransfer.e2e.eapi.CreateAgreementE2ETest`; use **`--no-daemon`** when running **multiple** Gradle processes (parallel shards).
+
+### 10.3 Examples (names only — see README for full bash)
+
+| # | Scenario | Highlights |
+|---|----------|------------|
+| **1** | One agreement, named profile | `E2E_ENV_PROFILE` + `EAPI_*` + default or explicit club/plan. |
+| **2** | One agreement, explicit URL | `EAPI_BASE_URL` + `EAPI_*`. |
+| **3** | One agreement, dt2rcm bridge | `DT2RCM_AUTOMATION_ROOT` + profile; **no** `EAPI_*` exports. |
+| **4** | Many agreements, **one** JVM | `E2E_TOTAL_AGREEMENTS` (1–100), sequential; `E2E_SHARD_COUNT=1`. |
+| **5** | **Parallel** shards | Same `E2E_TOTAL_AGREEMENTS` and `E2E_SHARD_COUNT` on every runner; **unique** `E2E_SHARD_INDEX` per process; `build.gradle` isolates JUnit/binary paths per shard. |
+| **6** | Compile only (no eAPI) | `./gradlew compileJava compileTestJava --no-daemon` — matches PR-safe CI posture. |
+
+### 10.4 Where outputs land (after a run)
+
+| Output | Location |
+|--------|----------|
+| Console | `CREATED_AGREEMENT …`, `E2E OK …`, shard lines |
+| JSON (per shard) | `build/e2e-agreement-results/agreements-shard-{index}.json` |
+| JUnit XML | `build/test-results/junit-xml-shard-{index}/` or `junit-xml-shard-single/` when `E2E_SHARD_INDEX` is unset |
+
+---
+
+## 11. Quick links
 
 | Resource | Location |
 |----------|----------|
-| Runbook & env vars | [README.md](../README.md) |
+| **Runbook, env vars, Examples 1–6, outputs** | [README.md](../README.md) |
 | Agreement E2E test | `src/test/java/com/membertransfer/e2e/eapi/CreateAgreementE2ETest.java` |
 | Shard configuration | `src/main/java/com/membertransfer/e2e/config/E2eShardConfig.java` |
 | Manual CI workflow | `.github/workflows/eapi-create-agreement.yml` |
@@ -228,7 +265,7 @@ With **`E2E_TOTAL_AGREEMENTS=50`** and **`E2E_SHARD_COUNT=5`**, each of five run
 
 ---
 
-## 11. Glossary, prerequisites, and ownership (fill in for your org)
+## 12. Glossary, prerequisites, and ownership (fill in for your org)
 
 | Item | Guidance |
 |------|-----------|
@@ -240,11 +277,12 @@ With **`E2E_TOTAL_AGREEMENTS=50`** and **`E2E_SHARD_COUNT=5`**, each of five run
 
 ---
 
-## 12. Document control
+## 13. Document control
 
 | Version | Date | Notes |
 |---------|------|--------|
 | 1.0 | 2026-04-14 | Initial wiki: executive summary, Cursor usage, structure, dt2rcm comparison, timing, security. |
-| 1.1 | 2026-04-14 | Added **technology stack (§5.1)**, **before/after timing examples (§7.1–7.3)** including measured **dt2rcm `:obc:compileTestJava`** vs **Member-transfer clean compile**, Member-transfer E2E samples, parallel **2-shard** example, **glossary / prerequisites / ownership** table (§11). |
+| 1.1 | 2026-04-14 | Added **technology stack (§5.1)**, **before/after timing examples (§7.1–7.3)** including measured **dt2rcm `:obc:compileTestJava`** vs **Member-transfer clean compile**, Member-transfer E2E samples, parallel **2-shard** example, **glossary / prerequisites / ownership** table. |
+| 1.2 | 2026-04-14 | Added **§10 How to run locally** (Gradle-only, checklist, Examples 1–6 summary table, output paths) aligned with README; renumbered **Quick links** → §11, **Glossary** → §12. |
 
 *Maintainer:* Update the table when timelines, workflows, or leadership messaging change. Re-run **§7.2** benchmarks after major Gradle or repo restructuring.
