@@ -47,31 +47,149 @@ Cursor **Skills** are optional rule packs (e.g. test-plan authoring, PR babysitt
 
 ## 4. Technical architecture (high level)
 
+**Mermaid** figures below render as graphics in **GitHub**, **GitLab**, many **Confluence** macros, and VS Code / Cursor preview (export PNG/SVG from those viewers for slides). For **plain-text wikis**, email, or terminals that do not render Mermaid, use **Figure 0** in a **monospace** block (same style as a boxed “template” diagram).
+
+### Figure 0 — ASCII template (architecture & E2E flow)
+
+Copy or embed as preformatted text; keep a **fixed-width** font so the box aligns.
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│        MEMBER-TRANSFER AUTOMATION — TECHNICAL ARCHITECTURE & E2E FLOW       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  CONFIG & CREDENTIALS (not committed to git)                                │
+│  ───────────────────────────────────────────                                │
+│  • EAPI_* or GH secrets; optional DT2RCM_AUTOMATION_ROOT (dev bridge)       │
+│  • environments.json + clubs.json (profiles, clubs, URLs)                   │
+│  • E2E_ENV_PROFILE / EAPI_BASE_URL; E2E_* shard + agreement counts          │
+│                                                                             │
+│  IN-REPO RUNTIME  ────────────────────────►  eAPI (QA / dev REST)           │
+│  ───────────────────────────────────────────                                │
+│  Gradle + TestNG (JVM 17) runs CreateAgreementE2ETest                       │
+│       │                                                                     │
+│       ├──► EApiAgreementClient  ──►  REST: plans, create agreement          │
+│       ├──► EApiAgreementAwait   ◄──►  poll until queue Posted               │
+│       ├──► AgreementRequestFactory (synthetic contact + card data)          │
+│       └──► E2eAgreementResultRecorder                                       │
+│                                                                             │
+│  DOWNSTREAM FLOW (same intent as dt2rcm CreateAgreementTest)                │
+│  ───────────────────────────────────────────────────────────                │
+│       │                                                                     │
+│       ▼                                                                     │
+│  validate plans → create agreement → wait Posted → member Active            │
+│       │                                                                     │
+│       ▼                                                                     │
+│  GET payment methods (assert) → append row → write shard JSON               │
+│                                                                             │
+│  OUTPUT & HANDOFF                                                           │
+│  ─────────────────                                                          │
+│  • Console + SLF4J logs for CI visibility                                   │
+│  • build/e2e-agreement-results/agreements-shard-*.json                      │
+│  • JUnit XML under per-shard dirs (build.gradle isolation)                  │
+│  • Optional: summarize_agreement_results.py → markdown summary              │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                          PARALLEL SCALE (optional)                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  • Shared E2E_TOTAL_* / SHARD_*; unique E2E_SHARD_INDEX per Gradle process  │
+│  • N parallel Gradle jobs; merge JSON; watch eAPI throttling / queues       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Figure 1 — System context (who talks to what)
+
 ```mermaid
-flowchart LR
-  subgraph config [Configuration]
-    ENV[Env vars / Secrets]
+flowchart TB
+  subgraph actors [People and automation]
+    DEV[Developer laptop]
+    CI[CI runner optional E2E]
+  end
+  subgraph repo [Member-transfer_Automation]
+    GW[Gradle + TestNG]
+    JVM[JVM 17 test process]
+  end
+  subgraph creds [Credentials not in git]
+    SEC[Env vars / GitHub secrets]
+    BRIDGE[Optional local dt2rcm bridge]
+  end
+  subgraph target [Target]
+    EAPI[(eAPI REST QA or dev stack)]
+  end
+  DEV --> SEC
+  DEV --> GW
+  CI --> SEC
+  CI --> GW
+  SEC --> JVM
+  BRIDGE -.->|dev only| JVM
+  GW --> JVM
+  JVM --> EAPI
+```
+
+### Figure 2 — Components inside the test run
+
+```mermaid
+flowchart TB
+  subgraph config [Configuration inputs]
+    ENV[Env vars / secrets]
     PROF[environments.json]
     CLUBS[clubs.json]
+    SHARD[E2eShardConfig total / count / index]
   end
-  subgraph runtime [Test runtime]
+  subgraph runtime [In-process E2E]
     TEST[CreateAgreementE2ETest]
+    FACT[AgreementRequestFactory / test data]
     CLIENT[EApiAgreementClient]
     AWAIT[EApiAgreementAwait]
     REC[E2eAgreementResultRecorder]
   end
-  subgraph external [External systems]
-    EAPI[eAPI REST]
+  subgraph external [External]
+    EAPI[eAPI]
+  end
+  subgraph outputs [Outputs]
+    ART[JSON agreements-shard-*.json]
+    JUNIT[JUnit XML per shard]
   end
   ENV --> TEST
   PROF --> TEST
   CLUBS --> TEST
+  SHARD --> TEST
+  TEST --> FACT
+  FACT --> CLIENT
   TEST --> CLIENT
-  CLIENT --> EAPI
+  CLIENT <--> EAPI
   TEST --> AWAIT
-  AWAIT --> EAPI
+  AWAIT <--> EAPI
   TEST --> REC
-  REC --> ART[JSON under build/e2e-agreement-results]
+  REC --> ART
+  TEST -.-> JUNIT
+```
+
+### Figure 3 — Agreement E2E sequence (logical order)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant T as CreateAgreementE2ETest
+  participant C as EApiAgreementClient
+  participant W as EApiAgreementAwait
+  participant API as eAPI
+  participant R as Result recorder
+  T->>T: Resolve profile URL club plan shard
+  T->>C: Plans / validation then create agreement
+  C->>API: REST JSON
+  API-->>C: Create response
+  T->>W: Wait until queue Posted
+  loop Poll with timeout
+    W->>API: Member / queue reads
+    API-->>W: State until Posted
+  end
+  W-->>T: Posted confirmed
+  T->>API: Member active + payment methods
+  API-->>T: Assertions data
+  T->>R: Append shard JSON artifact
 ```
 
 **Flow (aligned with dt2rcm `CreateAgreementTest`):**
@@ -246,5 +364,6 @@ With **`E2E_TOTAL_AGREEMENTS=50`** and **`E2E_SHARD_COUNT=5`**, each of five run
 |---------|------|--------|
 | 1.0 | 2026-04-14 | Initial wiki: executive summary, Cursor usage, structure, dt2rcm comparison, timing, security. |
 | 1.1 | 2026-04-14 | Added **technology stack (§5.1)**, **before/after timing examples (§7.1–7.3)** including measured **dt2rcm `:obc:compileTestJava`** vs **Member-transfer clean compile**, Member-transfer E2E samples, parallel **2-shard** example, **glossary / prerequisites / ownership** table (§11). |
+| 1.2 | 2026-04-15 | **§4 Technical architecture** expanded with **Figure 0** (ASCII template) and **Figures 1–3** (Mermaid: system context, components and outputs, agreement E2E sequence). |
 
 *Maintainer:* Update the table when timelines, workflows, or leadership messaging change. Re-run **§7.2** benchmarks after major Gradle or repo restructuring.
